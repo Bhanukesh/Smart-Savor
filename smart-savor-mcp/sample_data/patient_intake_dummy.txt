@@ -1,0 +1,46 @@
+====================================================================
+        RIVERWOOD NUTRITION CLINIC — NEW PATIENT INTAKE FORM
+====================================================================
+
+Patient Name:      Jamie Lee
+Date of Birth:     04/12/1978   (Age: 47)
+Gender:            Female
+Blood Group:       ____________   (left blank — please confirm at visit)
+
+--------------------------------------------------------------------
+MEDICAL HISTORY
+--------------------------------------------------------------------
+- Type 2 diabetes, diagnosed 2020. Currently diet + metformin managed.
+- Chronic kidney disease, stage 2 (since 2022).
+- Mild iron-deficiency anemia noted 2023; monitoring.
+
+--------------------------------------------------------------------
+DIETARY PROFILE
+--------------------------------------------------------------------
+Dietary restrictions:   Pescatarian (no red meat, no poultry)
+Foods disliked:         Cilantro, liver
+Approx. weekly grocery budget:   $65
+
+--------------------------------------------------------------------
+MEASUREMENTS & INTAKE BLOODWORK
+--------------------------------------------------------------------
+Height:   5'5"
+Weight:   168 lbs
+BMI:      27.9
+
+Vitamins:
+- Vitamin D:   22 ng/mL   (flagged low by lab)
+- Vitamin B12: 310 pg/mL
+- Folate:      ____ ng/mL   (not reported)
+
+Minerals:
+- Iron (serum): 60 ug/dL
+- Magnesium:    1.7 mg/dL
+- Potassium:    4.1 mmol/L
+
+--------------------------------------------------------------------
+NOTES
+--------------------------------------------------------------------
+Patient is motivated, cooks at home most nights. Prefers text reminders.
+Referred by Dr. Alvarez (endocrinology).
+====================================================================

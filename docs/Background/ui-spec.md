@@ -2,6 +2,10 @@
 
 *2026-06-27 · Scope: full Dietitian view + light Patient view. Hand-off doc for Figma / HTML prototyping.*
 
+> **Clickable prototype:** self-contained HTML/CSS mockups of the hero screens live in
+> `smart-savor-prototype/` — open `index.html` in a browser. Covers D1.5 (prioritize), D2/D3 (ratify),
+> P2 (the USP choose→recompute, interactive), P4 (dashboard), and P5 (Fresh Box, future). Screenshot-ready for the deck.
+
 ---
 
 ## 0. Principles
@@ -44,6 +48,7 @@ So the dietitian's screens map to cycle stages: **Caseload** (which cycles need 
 | P2 | My Plan | Approved swaps to try + shopping list | P0 |
 | P3 | Quick Log | Optional photo/voice food log | P1 |
 | P4 | My Progress | Simple "on track?" view | P1 |
+| P5 | Fresh Box (Weekly Produce Fulfillment) | Review + one-tap order the week's approved fresh produce (fruits & veg) to the door | **Future — out of scope v1** |
 
 ---
 

@@ -40,6 +40,25 @@ PATIENTS = {
     "sam-rivera": {
         "patient_id": "sam-rivera",
         "name": "Sam Rivera",
+        # demographics + history are auto-filled by the Patient Intake Ingestion Agent
+        # from an intake document, then ratified by the dietitian.
+        "age": 54,
+        "gender": "male",
+        "blood_group": "O+",
+        "bmi": 28.6,
+        # measured levels transcribed from intake bloodwork (not clinician-set targets)
+        "vitamins": [
+            {"name": "Vitamin D", "value": 24.0, "unit": "ng/mL", "flag": "ok"},
+            {"name": "Vitamin B12", "value": 380.0, "unit": "pg/mL", "flag": "ok"},
+        ],
+        "minerals": [
+            {"name": "Iron (serum)", "value": 55.0, "unit": "ug/dL", "flag": "ok"},
+            {"name": "Magnesium", "value": 1.8, "unit": "mg/dL", "flag": "ok"},
+        ],
+        "medical_history": [
+            {"condition": "type-2 diabetes", "since": "2019", "notes": "diet-managed", "flag": "ok"},
+            {"condition": "hypertension",    "since": "2021", "notes": None,           "flag": "ok"},
+        ],
         "conditions": ["type-2 diabetes"],
         "constraints": {
             "restrictions": ["vegetarian"],
@@ -71,6 +90,74 @@ PATIENTS = {
 # --- Accessors used by the MCP tools --------------------------------------------
 def get_patient(patient_id: str) -> dict | None:
     return PATIENTS.get(patient_id)
+
+
+# Fields the Patient Intake Ingestion Agent is allowed to write. Deliberately
+# EXCLUDES flagged_gaps (clinician-owned), habit_model (Receipt Ingestion Agent),
+# and cycle (Prioritization / Orchestrator) — the intake agent must never touch them.
+_INTAKE_WRITABLE = ("name", "age", "gender", "blood_group", "bmi", "vitamins",
+                    "minerals", "medical_history", "conditions", "constraints")
+
+
+def _empty_patient(patient_id: str) -> dict:
+    """A skeleton patient with the canonical schema keys and safe empty clinician fields."""
+    return {
+        "patient_id": patient_id,
+        "name": None,
+        "age": None,
+        "gender": None,
+        "blood_group": None,
+        "bmi": None,
+        "vitamins": [],   # measured levels transcribed from intake bloodwork
+        "minerals": [],   # measured levels transcribed from intake bloodwork
+        "medical_history": [],
+        "conditions": [],
+        "constraints": {"restrictions": [], "dislikes": [], "weekly_budget_usd": None},
+        "flagged_gaps": [],   # clinician-only; intake agent never fills this
+        "habit_model": {},    # Receipt Ingestion Agent territory
+        "cycle": {"cycle_id": None, "start": None, "retest_due": None, "focus_set": []},
+    }
+
+
+def upsert_patient(patient_id: str, profile: dict) -> dict:
+    """Create or merge a patient from extracted intake data.
+
+    Writes ONLY demographic / medical-history / constraint fields present in `profile`
+    (see `_INTAKE_WRITABLE`). Never touches flagged_gaps, habit_model, or cycle, so the
+    "agent drafts, dietitian ratifies" and clinician-owns-gaps contracts hold.
+
+    `profile` may carry a "review_fields" list (fields the extractor marked needs_review);
+    it is echoed back but not stored as patient data.
+
+    Returns {created, patient_id, written_fields, review_fields}.
+    """
+    created = patient_id not in PATIENTS
+    if created:
+        PATIENTS[patient_id] = _empty_patient(patient_id)
+    p = PATIENTS[patient_id]
+
+    written: list[str] = []
+    for key in _INTAKE_WRITABLE:
+        if key not in profile or profile[key] is None:
+            continue
+        if key == "constraints":
+            # merge sub-keys rather than clobbering the whole constraints object
+            incoming = profile["constraints"] or {}
+            for sub in ("restrictions", "dislikes", "weekly_budget_usd"):
+                if sub in incoming and incoming[sub] is not None:
+                    p["constraints"][sub] = incoming[sub]
+            written.append("constraints")
+        else:
+            p[key] = profile[key]
+            written.append(key)
+
+    review_fields = list(profile.get("review_fields", []))
+    return {
+        "created": created,
+        "patient_id": patient_id,
+        "written_fields": written,
+        "review_fields": review_fields,
+    }
 
 
 def query_reference(nutrient: str, exclude: list[str] | None = None,

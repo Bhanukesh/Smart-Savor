@@ -51,6 +51,8 @@
 2. **Open Food Facts / recipe HTTP-fetch** — *off-the-shelf MCP.* Branded items + recipe ingredients.
 3. **Health & Pantry Profile** — **custom MCP authored in Claude Code.** Stores flagged gaps, constraints, dislikes, budget, logged intake, and **serves the stitched price × nutrient reference table.** This is the bespoke source.
 
+*Future integration (OUT OF SCOPE for v1):* **Instacart Health / Kroger APIs** for **Weekly Fresh Produce Fulfillment** — building a weekly cart of the approved fresh produce for one-tap checkout/delivery (powered by a future Agent 7 — Fulfillment). Consent-first cart hand-off, not silent auto-charging. A Phase 3 expansion; not wired for the capstone.
+
 ## 5. Data Layer
 - **PostgreSQL** — patients, cycles, focus sets, gaps, swaps, approvals, labs, receipts, intake.
 - **pgvector** — embeddings for the Food Matcher's semantic match (product name ↔ FDC entry).
@@ -91,3 +93,5 @@
 
 ## Build-order note
 The riskiest dependency is **receipt ingestion accuracy** (§3) and the **offline join** (§5) — validate both with a spike before building the cycle UI on top. If Claude-vision receipt parsing or the Food Matcher accuracy is weak, the whole input pipeline is compromised. See `smart-savor-readiness.md`.
+
+For the **end-to-end architecture, the full MCP tool surface (built vs. to-build), data-model additions, and the phased build backlog**, see `smart-savor-architecture.md`.

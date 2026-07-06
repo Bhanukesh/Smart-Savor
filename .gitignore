@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Raw USDA FoodData Central source releases — 2.9GB, files >GitHub's 100MB limit.
+# Reproducible from fdc.nal.usda.gov; the curated output lives in docs/Dataset/.
+docs/USDA Datasets/

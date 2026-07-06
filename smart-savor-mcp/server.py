@@ -21,13 +21,24 @@ mcp = FastMCP("smart-savor-health-pantry")
 # --- Profile / cycle reads ------------------------------------------------------
 @mcp.tool()
 def get_patient_profile(patient_id: str) -> dict:
-    """Return the patient's name, conditions, and constraints (restrictions, dislikes, budget)."""
+    """Return the patient's demographics, conditions, medical history, and constraints.
+
+    Demographics and medical_history are auto-filled by the Patient Intake Ingestion
+    Agent (via save_patient_intake) so the dietitian can read back what was extracted.
+    """
     p = store.get_patient(patient_id)
     if not p:
         return {"error": f"unknown patient_id: {patient_id}"}
     return {
         "patient_id": p["patient_id"],
         "name": p["name"],
+        "age": p.get("age"),
+        "gender": p.get("gender"),
+        "blood_group": p.get("blood_group"),
+        "bmi": p.get("bmi"),
+        "vitamins": p.get("vitamins", []),
+        "minerals": p.get("minerals", []),
+        "medical_history": p.get("medical_history", []),
         "conditions": p["conditions"],
         "constraints": p["constraints"],
     }
@@ -101,6 +112,19 @@ def log_intake(patient_id: str, item: str, freq_per_week: float, date: str) -> d
     """Update the habit model with a newly observed item (from a receipt or manual log)."""
     ok = store.log_intake(patient_id, item, freq_per_week, date)
     return {"logged": ok, "patient_id": patient_id, "item": item}
+
+
+@mcp.tool()
+def save_patient_intake(patient_id: str, profile: dict) -> dict:
+    """Persist a demographics + medical-history + constraints profile drafted by the
+    Patient Intake Ingestion Agent from an intake document.
+
+    Creates the patient if new, else merges. NEVER sets flagged_gaps (clinician-owned),
+    habit_model, or cycle. Fields the extractor marked low-confidence are surfaced in
+    `review_fields` for the dietitian to ratify before they are treated as clinical truth.
+    """
+    result = store.upsert_patient(patient_id, profile)
+    return {"saved": True, **result}
 
 
 if __name__ == "__main__":

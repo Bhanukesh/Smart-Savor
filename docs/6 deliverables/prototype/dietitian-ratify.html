@@ -1,0 +1,92 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>D2/D3 · Ratify the swap menu</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="leaf">🌿</span> Smart&nbsp;Savor <small>Dietitian · command center</small></div>
+  <div class="who"><b>Maria, RD</b></div>
+</div>
+<div class="wrap">
+  <div class="protonav">
+    <a href="index.html">◀ Map</a>
+    <a href="dietitian-prioritize.html">1 · Prioritize</a>
+    <a class="here" href="dietitian-ratify.html">2 · Ratify</a>
+    <a href="patient-swap.html">3 · Choose ⭐</a>
+    <a href="patient-dashboard.html">4 · Progress</a>
+    <a href="patient-freshbox.html">5 · Fresh Box</a>
+  </div>
+
+  <div style="margin-top:18px" class="eyebrow">Sam Rivera · gap: Iron (9 → 18 mg)</div>
+  <h1>Ratify the swap menu Sam can choose from</h1>
+  <p class="sub">The agent drafted this menu of iron-closing foods, <b>screened for Sam's conditions</b>
+  (Type 2 + cardiac risk) and filtered to his diet. Approve, edit, or remove — only what you ratify
+  reaches Sam.</p>
+
+  <div class="card pad-lg">
+    <h2>Agent-drafted menu <span class="chip green">safe by construction after you ratify</span></h2>
+
+    <div class="row">
+      <div class="rank">✓</div>
+      <div class="grow">
+        <div class="title">Lentils <span class="chip green">6.6 mg/serving</span> <span class="chip">low disruption</span></div>
+        <div class="meta">Most iron per serving · Sam already buys it occasionally.</div>
+      </div>
+      <button class="btn sm primary">Approved</button>
+    </div>
+
+    <div class="row">
+      <div class="rank">✓</div>
+      <div class="grow">
+        <div class="title">Spinach <span class="chip green">6.4 mg/serving</span> <span class="chip">low disruption</span></div>
+        <div class="meta">High efficiency; pairs well with the Vitamin C focus.</div>
+      </div>
+      <button class="btn sm primary">Approved</button>
+    </div>
+
+    <div class="row">
+      <div class="rank">✓</div>
+      <div class="grow">
+        <div class="title">Tofu <span class="chip green">3.4 mg/serving</span></div>
+        <div class="meta">Vegetarian-friendly protein + iron.</div>
+      </div>
+      <button class="btn sm primary">Approved</button>
+    </div>
+
+    <div class="row">
+      <div class="rank" style="background:var(--amber-soft);color:var(--amber)">!</div>
+      <div class="grow">
+        <div class="title">Fortified cereal <span class="chip amber">comorbidity flag</span></div>
+        <div class="meta"><b>Agent flag for you:</b> many fortified cereals are high-sugar — may work against
+        Sam's glycemic control. Flagged, not dropped — your call.</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn sm">Keep</button>
+        <button class="btn sm">Remove</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="rank" style="background:var(--red-soft);color:var(--red)">✕</div>
+      <div class="grow">
+        <div class="title">Organ meats (liver) <span class="chip red">excluded by rule</span></div>
+        <div class="meta">Removed automatically — violates Sam's vegetarian restriction.</div>
+      </div>
+      <span class="chip ghost">auto-removed</span>
+    </div>
+
+    <div class="note">
+      <b>Hybrid safety, human-owned:</b> hard rules auto-exclude (vegetarian → liver); the agent
+      <em>flags</em> uncertain interactions (sugary cereal); <b>you ratify</b> the final menu. The LLM is
+      never the last word on safety.
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary">✓ Ratify menu → release to Sam</button>
+      <button class="btn">Add a food</button>
+    </div>
+  </div>
+
+  <p class="footer-tip">Powered by <b>Agent 4 — Swap Sourcing & Approved-List Drafting</b> (Sonnet) +
+  the comorbidity-rules table.</p>
+</div>
+</body></html>
