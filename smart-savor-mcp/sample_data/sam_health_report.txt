@@ -1,0 +1,78 @@
+====================================================================
+     QUEST DIAGNOSTICS  —  COMPREHENSIVE HEALTH CHECKUP REPORT
+====================================================================
+
+Patient Name:        Sam Rivera
+Date of Birth:       03/14/1972
+Age:                 54        Sex: Male
+Patient ID:          SR-40188
+Date Collected:      2026-06-28      Fasting: Yes
+Date Reported:       2026-06-30
+Ordering Physician:  Dr. A. Okafor
+Performing Lab:      Quest Diagnostics, San Jose CA
+
+VITALS
+Height:   5'9"
+Weight:   205 lb
+BMI:      30.3   HIGH
+Blood Pressure:  138/88 mmHg   HIGH
+
+==================== LABORATORY RESULTS ====================
+
+GLYCEMIC
+Fasting Glucose: 142 mg/dL [70-99] HIGH
+HbA1c: 7.2 % [4.0-5.6] HIGH
+Estimated Average Glucose: 160 mg/dL []
+
+LIPID PANEL
+Total Cholesterol: 228 mg/dL [<200] HIGH
+LDL Cholesterol: 151 mg/dL [<100] HIGH
+HDL Cholesterol: 34 mg/dL [>40] LOW
+Triglycerides: 210 mg/dL [<150] HIGH
+Non-HDL Cholesterol: 194 mg/dL [<130] HIGH
+
+IRON STUDIES
+Iron: 48 ug/dL [65-175] LOW
+Ferritin: 22 ng/mL [30-400] LOW
+TIBC: 410 ug/dL [250-400] HIGH
+Transferrin Saturation: 12 % [20-50] LOW
+
+VITAMINS
+Vitamin D, 25-Hydroxy: 18 ng/mL [30-100] LOW
+Vitamin B12: 310 pg/mL [200-900] NORMAL
+Folate: -- ng/mL [>3.0]
+
+MINERALS AND ELECTROLYTES
+Magnesium: 1.6 mg/dL [1.7-2.2] LOW
+Calcium: 9.3 mg/dL [8.6-10.2] NORMAL
+Potassium: 4.1 mmol/L [3.5-5.1] NORMAL
+Sodium: 139 mmol/L [136-145] NORMAL
+
+COMPLETE BLOOD COUNT (CBC)
+WBC: 6.8 x10E3/uL [3.4-10.8] NORMAL
+RBC: 4.9 x10E6/uL [4.14-5.80] NORMAL
+Hemoglobin: 14.2 g/dL [13.0-17.7] NORMAL
+Hematocrit: 42 % [37.5-51.0] NORMAL
+Platelets: 250 x10E3/uL [150-450] NORMAL
+
+LIVER FUNCTION
+ALT (SGPT): 34 U/L [0-44] NORMAL
+AST (SGOT): 28 U/L [0-40] NORMAL
+Alkaline Phosphatase: 78 U/L [39-117] NORMAL
+
+KIDNEY FUNCTION
+BUN: 15 mg/dL [7-25] NORMAL
+Creatinine: 0.9 mg/dL [0.60-1.35] NORMAL
+eGFR: 95 mL/min/1.73 [>59] NORMAL
+
+THYROID
+TSH: 2.1 uIU/mL [0.40-4.50] NORMAL
+
+--------------------------------------------------------------------
+IMPRESSION / CLINICAL INFO
+--------------------------------------------------------------------
+Type 2 diabetes (uncontrolled, HbA1c 7.2%). Hyperlipidemia with elevated
+LDL and triglycerides. Elevated cardiovascular risk. Low iron stores,
+vitamin D deficiency, and low magnesium noted. Recommend dietary
+intervention and follow-up labs in 3 months.
+====================================================================

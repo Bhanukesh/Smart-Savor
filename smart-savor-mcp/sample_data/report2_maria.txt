@@ -1,0 +1,30 @@
+LabCorp  |  Patient Report
+
+Patient: Chen, Maria          DOB: 09/22/1978     Age: 47    Sex: F
+Specimen ID: 445-201-8890-2   Collected: 07/02/2026   Fasting: Yes
+Ordering Physician: Dr. R. Patel      Performing Lab: LabCorp, Raleigh NC
+
+Vitals:  Height 5'4"   Weight 172 lb   BMI 29.5   BP 132/85
+
+TEST                          RESULT    FLAG    UNITS      REFERENCE INTERVAL
+Glucose, Fasting              118       High    mg/dL      65-99
+Hemoglobin A1c                6.4       High    %          4.8-5.6
+Cholesterol, Total            196               mg/dL      100-199
+HDL Cholesterol               68                mg/dL      >39
+LDL Cholesterol (calc)        112       High    mg/dL      0-99
+Triglycerides                 84                mg/dL      0-149
+Iron, Serum                   41        Low     ug/dL      40-190
+Ferritin                      9         Low     ng/mL      15-150
+Vitamin D, 25-OH              29        Low     ng/mL      30-100
+Vitamin B12                   402               pg/mL      232-1245
+Folate, Serum                 ~~smudged~~       ng/mL      >5.4
+Magnesium                     2.0               mg/dL      1.6-2.3
+Calcium                       9.5               mg/dL      8.5-10.2
+Sodium                        140               mmol/L     134-144
+Potassium                     4.4               mmol/L     3.5-5.2
+TSH                           3.8               uIU/mL     0.45-4.50
+Creatinine                    0.82              mg/dL      0.57-1.00
+WBC                           6.1               x10E3/uL   3.4-10.8
+Hemoglobin                    11.9      Low     g/dL       11.1-15.9
+
+Impression: Prediabetes; iron-deficiency anemia; borderline vitamin D. Diet counseling advised.

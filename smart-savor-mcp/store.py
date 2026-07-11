@@ -45,15 +45,25 @@ PATIENTS = {
         "age": 54,
         "gender": "male",
         "blood_group": "O+",
-        "bmi": 28.6,
-        # measured levels transcribed from intake bloodwork (not clinician-set targets)
-        "vitamins": [
-            {"name": "Vitamin D", "value": 24.0, "unit": "ng/mL", "flag": "ok"},
-            {"name": "Vitamin B12", "value": 380.0, "unit": "pg/mL", "flag": "ok"},
+        "bmi": 30.3,
+        "blood_pressure": {"systolic": 138, "diastolic": 88},
+        "date_of_birth": "03/14/1972",
+        "report_meta": {"date_collected": "2026-06-28", "fasting": "Yes",
+                        "ordering_physician": "Dr. A. Okafor",
+                        "performing_lab": "Quest Diagnostics, San Jose CA"},
+        # measured biomarkers transcribed from the health report (not clinician-set gaps)
+        "lab_results": [
+            {"panel": "Glycemic", "name": "HbA1c", "value": 7.2, "unit": "%", "reference_text": "4.0-5.6", "flag": "High"},
+            {"panel": "Lipid Panel", "name": "LDL Cholesterol", "value": 151.0, "unit": "mg/dL", "reference_text": "<100", "flag": "High"},
+            {"panel": "Lipid Panel", "name": "HDL Cholesterol", "value": 34.0, "unit": "mg/dL", "reference_text": ">40", "flag": "Low"},
+            {"panel": "Lipid Panel", "name": "Triglycerides", "value": 210.0, "unit": "mg/dL", "reference_text": "<150", "flag": "High"},
+            {"panel": "Iron Studies", "name": "Ferritin", "value": 22.0, "unit": "ng/mL", "reference_text": "30-400", "flag": "Low"},
+            {"panel": "Vitamins", "name": "Vitamin D, 25-Hydroxy", "value": 18.0, "unit": "ng/mL", "reference_text": "30-100", "flag": "Low"},
+            {"panel": "Minerals And Electrolytes", "name": "Magnesium", "value": 1.6, "unit": "mg/dL", "reference_text": "1.7-2.2", "flag": "Low"},
         ],
-        "minerals": [
-            {"name": "Iron (serum)", "value": 55.0, "unit": "ug/dL", "flag": "ok"},
-            {"name": "Magnesium", "value": 1.8, "unit": "mg/dL", "flag": "ok"},
+        "other_analytes": [
+            {"panel": "Complete Blood Count (Cbc)", "name": "Hemoglobin", "value": 14.2, "unit": "g/dL", "reference_text": "13.0-17.7", "flag": "Normal"},
+            {"panel": "Thyroid", "name": "TSH", "value": 2.1, "unit": "uIU/mL", "reference_text": "0.40-4.50", "flag": "Normal"},
         ],
         "medical_history": [
             {"condition": "type-2 diabetes", "since": "2019", "notes": "diet-managed", "flag": "ok"},
@@ -77,6 +87,10 @@ PATIENTS = {
             "Banana":     {"freq_per_week": 7, "last_seen": "2026-06-24"},
             "Lentils":    {"freq_per_week": 1, "last_seen": "2026-06-10"},
         },
+        "consumption_events": [],
+        "approved_lists": {},
+        "patient_choices": [],
+        "nudges": [],
         "cycle": {
             "cycle_id": "sam-2026q2",
             "start": "2026-04-02",
@@ -95,8 +109,9 @@ def get_patient(patient_id: str) -> dict | None:
 # Fields the Patient Intake Ingestion Agent is allowed to write. Deliberately
 # EXCLUDES flagged_gaps (clinician-owned), habit_model (Receipt Ingestion Agent),
 # and cycle (Prioritization / Orchestrator) — the intake agent must never touch them.
-_INTAKE_WRITABLE = ("name", "age", "gender", "blood_group", "bmi", "vitamins",
-                    "minerals", "medical_history", "conditions", "constraints")
+_INTAKE_WRITABLE = ("name", "age", "gender", "date_of_birth", "blood_group", "bmi",
+                    "blood_pressure", "report_meta", "lab_results", "other_analytes",
+                    "medical_history", "conditions", "constraints")
 
 
 def _empty_patient(patient_id: str) -> dict:
@@ -106,15 +121,22 @@ def _empty_patient(patient_id: str) -> dict:
         "name": None,
         "age": None,
         "gender": None,
+        "date_of_birth": None,
         "blood_group": None,
         "bmi": None,
-        "vitamins": [],   # measured levels transcribed from intake bloodwork
-        "minerals": [],   # measured levels transcribed from intake bloodwork
+        "blood_pressure": None,   # {"systolic": .., "diastolic": ..}
+        "report_meta": None,      # lab/report metadata (date, fasting, physician, lab)
+        "lab_results": [],        # product-relevant biomarkers from the health report
+        "other_analytes": [],     # everything else the report contained (kept, not acted on)
         "medical_history": [],
         "conditions": [],
         "constraints": {"restrictions": [], "dislikes": [], "weekly_budget_usd": None},
         "flagged_gaps": [],   # clinician-only; intake agent never fills this
-        "habit_model": {},    # Receipt Ingestion Agent territory
+        "habit_model": {},    # Ingestion Agent: PURCHASE signal (from receipts)
+        "consumption_events": [],  # Ingestion Agent: CONSUMPTION signal (from logs)
+        "approved_lists": {},      # Swap Sourcing Agent: dietitian-ratified menu per nutrient
+        "patient_choices": [],     # Swap Sourcing Agent: what the patient picked (USP)
+        "nudges": [],              # Nudge Agent: weekly adherence nudges sent
         "cycle": {"cycle_id": None, "start": None, "retest_due": None, "focus_set": []},
     }
 
@@ -172,6 +194,11 @@ def query_reference(nutrient: str, exclude: list[str] | None = None,
     Price is an OPTIONAL signal in B2B v1: `max_cost_per_unit` is NOT applied unless the
     caller passes it. cost_per_unit_nutrient is always returned so the UI can show/sort by it.
     """
+    import reference   # real dataset (docs/Dataset); falls back to the seed below
+    real = reference.query(nutrient, exclude=exclude, sort_by=sort_by,
+                           max_cost_per_unit=max_cost_per_unit, limit=limit)
+    if real:
+        return real
     exclude = {e.lower() for e in (exclude or [])}
     rows = [_with_derived(r) for r in REFERENCE_TABLE if r["nutrient"] == nutrient]
     rows = [r for r in rows if r["food"].lower() not in exclude]
@@ -199,4 +226,47 @@ def log_intake(patient_id: str, item: str, freq_per_week: float, date: str) -> b
     if not p:
         return False
     p["habit_model"][item] = {"freq_per_week": freq_per_week, "last_seen": date}
+    return True
+
+
+# --- Agent 2 (Ingestion): consumption events ------------------------------------
+def add_consumption_event(patient_id: str, event: dict) -> bool:
+    """Record a CONSUMPTION event (from a food log): {item, date, source, confidence}."""
+    p = PATIENTS.get(patient_id)
+    if not p:
+        return False
+    p.setdefault("consumption_events", []).append(event)
+    return True
+
+
+# --- Agent 4 (Swap Sourcing): approved lists + patient choices ------------------
+def save_approved_list(patient_id: str, nutrient: str, items: list[dict]) -> bool:
+    """Persist the dietitian-ratified approved swap menu for a nutrient gap."""
+    p = PATIENTS.get(patient_id)
+    if not p:
+        return False
+    p.setdefault("approved_lists", {})[nutrient] = items
+    return True
+
+
+def get_approved_list(patient_id: str, nutrient: str) -> list[dict]:
+    p = PATIENTS.get(patient_id)
+    return (p or {}).get("approved_lists", {}).get(nutrient, [])
+
+
+def save_patient_choice(patient_id: str, choice: dict) -> bool:
+    """Record the food the patient picked + the recomputed amount (the USP moment)."""
+    p = PATIENTS.get(patient_id)
+    if not p:
+        return False
+    p.setdefault("patient_choices", []).append(choice)
+    return True
+
+
+# --- Agent 5 (Nudge) ------------------------------------------------------------
+def add_nudge(patient_id: str, nudge: dict) -> bool:
+    p = PATIENTS.get(patient_id)
+    if not p:
+        return False
+    p.setdefault("nudges", []).append(nudge)
     return True

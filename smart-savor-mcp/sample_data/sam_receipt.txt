@@ -1,0 +1,9 @@
+WALMART GROCERY RECEIPT — 2026-06-28
+Item                                   Qty   Price
+Great Value White Rice 5lb              1    4.98
+Fresh Bananas                           7    2.10
+Goya Red Kidney Beans 15.5oz            3    1.29
+Fresh Green Bell Pepper                 2    1.50
+Marketside Super Blend 10oz             1    4.50
+Whole Milk 1 Gallon                     1    3.20
+Paper Towels 6 Rolls                    1    5.00

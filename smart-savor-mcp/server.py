@@ -21,10 +21,11 @@ mcp = FastMCP("smart-savor-health-pantry")
 # --- Profile / cycle reads ------------------------------------------------------
 @mcp.tool()
 def get_patient_profile(patient_id: str) -> dict:
-    """Return the patient's demographics, conditions, medical history, and constraints.
+    """Return the patient's demographics, vitals, lab results, history, and constraints.
 
-    Demographics and medical_history are auto-filled by the Patient Intake Ingestion
-    Agent (via save_patient_intake) so the dietitian can read back what was extracted.
+    Demographics, vitals, and lab_results/other_analytes are auto-filled by the Patient
+    Intake Ingestion Agent (via save_patient_intake) from the health report, so the
+    dietitian can read back what was extracted.
     """
     p = store.get_patient(patient_id)
     if not p:
@@ -34,10 +35,13 @@ def get_patient_profile(patient_id: str) -> dict:
         "name": p["name"],
         "age": p.get("age"),
         "gender": p.get("gender"),
+        "date_of_birth": p.get("date_of_birth"),
         "blood_group": p.get("blood_group"),
         "bmi": p.get("bmi"),
-        "vitamins": p.get("vitamins", []),
-        "minerals": p.get("minerals", []),
+        "blood_pressure": p.get("blood_pressure"),
+        "report_meta": p.get("report_meta"),
+        "lab_results": p.get("lab_results", []),
+        "other_analytes": p.get("other_analytes", []),
         "medical_history": p.get("medical_history", []),
         "conditions": p["conditions"],
         "constraints": p["constraints"],
