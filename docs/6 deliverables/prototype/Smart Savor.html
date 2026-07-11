@@ -1,0 +1,319 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Smart Savor — Walkthrough</title>
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="mark"><i class="ph-fill ph-leaf"></i></span> Smart&nbsp;Savor <small id="tb-context">walkthrough</small></div>
+  <div class="who" id="tb-who"></div>
+</div>
+
+<div class="wrap">
+  <nav class="stepper" id="stepper" aria-label="Walkthrough stages">
+    <button class="step" data-goto="0"><span class="n">1</span> Prioritize</button>
+    <button class="step" data-goto="1"><span class="n">2</span> Ratify</button>
+    <button class="step" data-goto="2"><span class="n"><i class="ph-fill ph-star"></i></span> Swap</button>
+    <button class="step" data-goto="3"><span class="n">4</span> Dashboard</button>
+    <button class="step" data-goto="4"><span class="n">5</span> Fresh Box</button>
+  </nav>
+
+  <!-- STAGE 1 — Prioritize (Dietitian) -->
+  <section class="stage" data-role="dietitian" data-context="Dietitian console"
+    data-who='<i class="ph ph-stethoscope ic-primary"></i> Signed in: <b>Maria, RD</b> · Patient: <b>Sam Rivera, 54</b>'>
+    <p class="eyebrow">Dietitian · Stage D1.5</p>
+    <h1>This week's <em>focus set</em></h1>
+    <p class="sub">Ranked from the latest panel and 14-day intake log. Confirm to publish the set
+      downstream to swap-menu generation (D2), or override the ranking.</p>
+
+    <div class="card">
+      <h2><i class="ph ph-identification-badge ic-primary"></i> Patient snapshot — Sam Rivera, 54</h2>
+      <div class="btn-row" style="margin-bottom:10px">
+        <span class="chip ghost">Type 2 diabetes</span><span class="chip ghost">Cardiac history</span>
+        <span class="chip ghost">BMI 30.3</span><span class="chip ghost">BP 138/88</span>
+      </div>
+      <p class="sub" style="margin:0">Labs (this cycle): <b>HbA1c 7.2%</b> · <b>LDL 151 mg/dL</b> ·
+        <b>HDL 34 mg/dL</b> · <b>Triglycerides 210 mg/dL</b> · <b>Vitamin D 18 ng/mL</b></p>
+    </div>
+
+    <div class="card">
+      <h2><i class="ph ph-list-numbers ic-primary"></i> Ranked focus set</h2>
+      <div class="row"><div class="rank">1</div><div class="grow">
+        <div class="title">Iron (Fe) <span class="chip blue">Priority</span></div>
+        <div class="meta">Target 18 mg/day · current 9 mg · gap 9 mg (50% of target). Reason: sustained
+          low intake across 14-day log; patient reports fatigue.<br>Pairs: vitamin C · Conflicts:
+          calcium supplements, tea/coffee within 1 h of meals.</div></div></div>
+      <div class="row"><div class="rank">2</div><div class="grow">
+        <div class="title">Vitamin C <span class="chip blue">Pairs with #1</span></div>
+        <div class="meta">Target 90 mg/day · current 40 mg · gap 50 mg. Reason: produce intake low;
+          sequenced with iron to drive absorption.</div></div></div>
+      <div class="row"><div class="rank">3</div><div class="grow">
+        <div class="title">Magnesium</div>
+        <div class="meta">Target 420 mg/day · current 300 mg · gap 120 mg. Reason: adjunct for BP
+          management (138/88); intake below RDA.</div></div></div>
+      <div class="row"><div class="rank warn">!</div><div class="grow">
+        <div class="title">Vitamin D <span class="chip amber">Flagged — not food-first</span></div>
+        <div class="meta">18 ng/mL (deficient). Dietary sources cannot close this gap; refer to MD for
+          supplementation. Excluded from the food-first focus set.</div></div></div>
+
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn primary" id="confirm">Confirm focus set <i class="ph-bold ph-arrow-right"></i></button>
+        <button class="btn">Override ranking</button>
+      </div>
+      <p class="note safe" id="published" hidden><strong><i class="ph ph-check-circle"></i> Published:</strong>
+        Focus set confirmed and sent to swap-menu generation.
+        <a href="#" data-goto="1" style="text-decoration:underline">Continue to Ratify (D2/D3) →</a></p>
+    </div>
+
+    <p class="note"><strong><i class="ph ph-info ic-primary"></i> Note:</strong> Lipids (LDL 151, TG 210)
+      and glycemic control (HbA1c 7.2%) are handled as screening constraints at the ratify stage —
+      they shape what's excluded, not what's ranked.</p>
+  </section>
+
+  <!-- STAGE 2 — Ratify (Dietitian) -->
+  <section class="stage" data-role="dietitian" data-context="Dietitian console"
+    data-who='<i class="ph ph-stethoscope ic-primary"></i> Signed in: <b>Maria, RD</b> · Patient: <b>Sam Rivera, 54</b>'>
+    <p class="eyebrow">Dietitian · Stage D2/D3</p>
+    <h1>Ratify the <em>swap menu</em></h1>
+    <p class="sub">Candidates generated from the confirmed focus set (iron-lead), screened against
+      comorbidities and current labs. Approve, edit, or remove — only ratified items reach Sam.</p>
+
+    <p class="note"><strong><i class="ph ph-funnel ic-primary"></i> Screening constraints:</strong>
+      Type 2 (added sugar, glycemic load) · cardiac + LDL 151 / TG 210 (saturated fat, cholesterol) ·
+      BP 138/88 (sodium). Applied to every candidate below.</p>
+
+    <div class="card">
+      <h2><i class="ph ph-check-square ic-primary"></i> Iron swap menu — 8 candidates</h2>
+      <div class="row"><div class="rank ok"><i class="ph-bold ph-check"></i></div><div class="grow">
+        <div class="title">Lentils (cooked) <span class="chip green">Approved</span></div>
+        <div class="meta">~6.6 mg iron/cup · high fiber slows glucose response — fits Type 2.</div></div>
+        <div class="btn-row"><button class="btn sm">Edit</button><button class="btn sm">Remove</button></div></div>
+      <div class="row"><div class="rank ok"><i class="ph-bold ph-check"></i></div><div class="grow">
+        <div class="title">Spinach (cooked) <span class="chip green">Approved</span></div>
+        <div class="meta">~3.6 mg iron/cup · pair with vitamin C source for absorption.</div></div>
+        <div class="btn-row"><button class="btn sm">Edit</button><button class="btn sm">Remove</button></div></div>
+      <div class="row"><div class="rank ok"><i class="ph-bold ph-check"></i></div><div class="grow">
+        <div class="title">Chickpeas (cooked) <span class="chip green">Approved</span></div>
+        <div class="meta">~4.7 mg iron/cup · also ~78 mg magnesium/cup toward focus #3.</div></div>
+        <div class="btn-row"><button class="btn sm">Edit</button><button class="btn sm">Remove</button></div></div>
+      <div class="row"><div class="rank ok"><i class="ph-bold ph-check"></i></div><div class="grow">
+        <div class="title">White beans (canned) <span class="chip green">Approved · edited</span></div>
+        <div class="meta">~7.8 mg iron/cup · edit applied: low-sodium only, rinse before use (BP 138/88).</div></div>
+        <div class="btn-row"><button class="btn sm">Edit</button><button class="btn sm">Remove</button></div></div>
+      <div class="row"><div class="rank ok"><i class="ph-bold ph-check"></i></div><div class="grow">
+        <div class="title">Firm tofu <span class="chip green">Approved</span></div>
+        <div class="meta">~6.8 mg iron/cup · lean protein swap displacing saturated-fat sources.</div></div>
+        <div class="btn-row"><button class="btn sm">Edit</button><button class="btn sm">Remove</button></div></div>
+      <div class="row"><div class="rank warn">!</div><div class="grow">
+        <div class="title">Fortified breakfast cereal <span class="chip amber">Flagged</span></div>
+        <div class="meta">~18 mg iron/serving but 12 g added sugar — conflicts with Type 2 screen.
+          Suggested edit: unsweetened fortified bran variant.</div></div>
+        <div class="btn-row"><button class="btn sm primary">Approve</button><button class="btn sm">Edit</button></div></div>
+      <div class="row"><div class="rank bad"><i class="ph-bold ph-x"></i></div><div class="grow">
+        <div class="title" style="color:var(--danger)">Beef liver <span class="chip red">Excluded</span></div>
+        <div class="meta">~5.6 mg iron/3 oz but 330 mg cholesterol — fails cardiac screen (LDL 151).
+          Auto-excluded; not shown to patient.</div></div>
+        <div class="btn-row"><button class="btn sm">Restore</button></div></div>
+
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn primary" data-goto="2">Publish ratified menu to Sam <i class="ph-bold ph-arrow-right"></i></button>
+        <button class="btn">Add candidate</button>
+      </div>
+    </div>
+
+    <p class="note safe"><strong><i class="ph ph-check-circle"></i> Clinically safe:</strong>
+      Everything Sam can pick downstream has already passed this screen — his choice is free
+      <em>because</em> the menu is ratified.</p>
+  </section>
+
+  <!-- STAGE 3 — Swap (Patient · THE USP) -->
+  <section class="stage" data-role="patient" data-context="Your plan"
+    data-who='<i class="ph ph-user ic-primary"></i> <b>Sam Rivera</b> · plan by <b>Maria, RD</b>'>
+    <p class="eyebrow">Your move · Iron</p>
+    <h1>What's on <em>your plate</em>, Sam?</h1>
+    <p class="sub">You have <b>9 mg of iron</b> to go today (9 of 18 logged). Pick any food below —
+      every one is already approved by Maria — and we'll do the math for you.</p>
+
+    <div class="card pad-lg">
+      <h2><i class="ph ph-swap ic-primary"></i> Pick your iron food</h2>
+      <div class="foodgrid" id="foodgrid">
+        <div class="food active" tabindex="0" role="button" aria-pressed="true" data-name="lentils" data-prep="cooked" data-mg="6.6">
+          <div class="pick"><i class="ph-bold ph-check"></i> Selected</div>
+          <div class="fname"><i class="ph-fill ph-bowl-food ic-primary"></i> Lentils</div>
+          <div class="fmeta">~6.6 mg iron per cup (cooked)</div></div>
+        <div class="food" tabindex="0" role="button" aria-pressed="false" data-name="spinach" data-prep="cooked" data-mg="3.6">
+          <div class="pick"><i class="ph-bold ph-check"></i> Selected</div>
+          <div class="fname"><i class="ph-fill ph-leaf ic-primary"></i> Spinach</div>
+          <div class="fmeta">~3.6 mg iron per cup (cooked)</div></div>
+        <div class="food" tabindex="0" role="button" aria-pressed="false" data-name="chickpeas" data-prep="cooked" data-mg="4.7">
+          <div class="pick"><i class="ph-bold ph-check"></i> Selected</div>
+          <div class="fname"><i class="ph-fill ph-circles-three ic-primary"></i> Chickpeas</div>
+          <div class="fmeta">~4.7 mg iron per cup (cooked)</div></div>
+        <div class="food" tabindex="0" role="button" aria-pressed="false" data-name="white beans" data-prep="canned, rinsed" data-mg="7.8">
+          <div class="pick"><i class="ph-bold ph-check"></i> Selected</div>
+          <div class="fname"><i class="ph-fill ph-drop ic-primary"></i> White beans</div>
+          <div class="fmeta">~7.8 mg iron per cup (canned, rinsed)</div></div>
+        <div class="food" tabindex="0" role="button" aria-pressed="false" data-name="firm tofu" data-prep="cubed" data-mg="6.8">
+          <div class="pick"><i class="ph-bold ph-check"></i> Selected</div>
+          <div class="fname"><i class="ph-fill ph-cube ic-primary"></i> Firm tofu</div>
+          <div class="fmeta">~6.8 mg iron per cup (cubed)</div></div>
+        <div class="food" tabindex="0" role="button" aria-pressed="false" data-name="pumpkin seeds" data-prep="unsalted" data-mg="9.2">
+          <div class="pick"><i class="ph-bold ph-check"></i> Selected</div>
+          <div class="fname"><i class="ph-fill ph-plant ic-primary"></i> Pumpkin seeds</div>
+          <div class="fmeta">~2.3 mg iron per ¼ cup (unsalted)</div></div>
+      </div>
+      <div class="result" id="result" aria-live="polite">
+        <div class="big" id="result-big">~1½ cups of lentils (cooked)</div>
+        <p style="font-size:13.5px;color:var(--muted-foreground);margin:6px 0 12px">closes your 9 mg iron gap for today</p>
+        <div class="stamp"><i class="ph-fill ph-seal-check ic-primary"></i> Still within Maria's approved plan</div>
+      </div>
+    </div>
+
+    <p class="note"><strong><i class="ph ph-orange-slice ic-primary"></i> Pair boost:</strong> a squeeze of
+      lemon or a few bell pepper strips alongside helps your body absorb plant iron — and counts toward
+      your vitamin C goal too.</p>
+    <p class="note honesty"><strong><i class="ph ph-eye ic-primary"></i> Honest note:</strong> amounts are
+      estimates from standard nutrition data, not a prescription. Log what you actually eat and your
+      dashboard updates from that.</p>
+    <p class="footer-tip">Tip: move between foods with <span class="kbd">←</span> <span class="kbd">→</span>
+      <span class="kbd">↑</span> <span class="kbd">↓</span> and select with <span class="kbd">Enter</span></p>
+  </section>
+
+  <!-- STAGE 4 — Dashboard (Patient) -->
+  <section class="stage" data-role="patient" data-context="Your week"
+    data-who='<i class="ph ph-user ic-primary"></i> <b>Sam Rivera</b> · plan by <b>Maria, RD</b>'>
+    <p class="eyebrow">Your week · Jul 6 – 12</p>
+    <h1>You're <em>trending up</em>, Sam</h1>
+    <p class="sub">Three targets from Maria's focus set, tracked from what you've logged this week.
+      One is already in range — the other two are moving the right way.</p>
+
+    <div class="card pad-lg">
+      <h2><i class="ph ph-chart-line ic-primary"></i> Intake toward target</h2>
+      <div class="gauge">
+        <div class="lab"><span><i class="ph ph-drop ic-primary"></i> Iron</span>
+          <span style="color:var(--muted-foreground)">15 / 18 mg</span></div>
+        <div class="track"><div class="fill" style="width:83%"></div><div class="target" style="left:100%"></div></div>
+        <div class="cap">Up from 9 mg at baseline · logged foods · target 18 mg/day</div></div>
+      <div class="gauge">
+        <div class="lab"><span><i class="ph ph-orange-slice ic-success"></i> Vitamin C</span>
+          <span style="color:var(--success);font-weight:600">92 / 90 mg <i class="ph-bold ph-check"></i> in range</span></div>
+        <div class="track"><div class="fill done" style="width:100%"></div><div class="target" style="left:100%"></div></div>
+        <div class="cap">Target met 3 days running · up from 40 mg at baseline · target 90 mg/day</div></div>
+      <div class="gauge">
+        <div class="lab"><span><i class="ph ph-lightning ic-primary"></i> Magnesium</span>
+          <span style="color:var(--muted-foreground)">350 / 420 mg</span></div>
+        <div class="track"><div class="fill" style="width:83%"></div><div class="target" style="left:100%"></div></div>
+        <div class="cap">Up from 300 mg at baseline · logged foods · target 420 mg/day</div></div>
+    </div>
+
+    <p class="note"><strong><i class="ph ph-sparkle ic-primary"></i> This week's nudge:</strong> two more
+      iron-forward lunches — the lentils or chickpeas you've already unlocked on the
+      <a href="#" data-goto="2" style="text-decoration:underline">swap screen</a> — and you'll likely close
+      that last 3 mg by Sunday.</p>
+    <p class="note honesty"><strong><i class="ph ph-eye ic-primary"></i> Honest note:</strong> intake toward
+      target, from logged foods — not a blood level. Your next panel with your care team is what confirms
+      the real change.</p>
+  </section>
+
+  <!-- STAGE 5 — Fresh Box (Patient · future) -->
+  <section class="stage" data-role="patient" data-context="Concept preview"
+    data-who='<i class="ph ph-user ic-primary"></i> <b>Sam Rivera</b> · plan by <b>Maria, RD</b>'>
+    <p class="eyebrow">Future stage · Concept</p>
+    <h1>Your kitchen, <em>restocked</em></h1>
+    <p class="sub">The loop closes itself: the produce Maria approved and you actually pick shows up at
+      your door before you run out. <span class="chip amber">Out of scope · v1</span></p>
+
+    <p class="note future"><strong><i class="ph ph-clock-countdown"></i> Coming in v2:</strong> Fresh Box
+      auto-ordering is a planned future release. Nothing on this screen is functional — it's here so you
+      can see where the loop is headed.</p>
+
+    <div class="card">
+      <h2><i class="ph ph-package ic-primary"></i> Next box — built from your swaps <span class="chip amber">v2</span></h2>
+      <div class="row"><div class="rank"><i class="ph ph-bowl-food"></i></div><div class="grow">
+        <div class="title">Lentils — 1 lb bag</div><div class="meta">Your most-picked swap · covers ~4 iron-forward lunches</div></div></div>
+      <div class="row"><div class="rank"><i class="ph ph-leaf"></i></div><div class="grow">
+        <div class="title">Spinach — 2 bunches</div><div class="meta">From the approved menu · best within 5 days</div></div></div>
+      <div class="row"><div class="rank"><i class="ph ph-circles-three"></i></div><div class="grow">
+        <div class="title">Chickpeas — 2 cans, low-sodium</div><div class="meta">Iron + magnesium co-benefit · matches Maria's sodium edit</div></div></div>
+      <div class="row"><div class="rank"><i class="ph ph-plant"></i></div><div class="grow">
+        <div class="title">Pumpkin seeds — 8 oz, unsalted</div><div class="meta">Snack-sized top-up for magnesium days</div></div></div>
+      <div class="row"><div class="rank"><i class="ph ph-orange-slice"></i></div><div class="grow">
+        <div class="title">Lemons — 4</div><div class="meta">The pair boost — vitamin C alongside plant iron</div></div></div>
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn primary" disabled>Auto-order weekly <i class="ph-bold ph-arrow-right"></i></button>
+        <button class="btn" disabled>Adjust box</button>
+      </div>
+    </div>
+    <p class="footer-tip">Back to what works today: the
+      <a href="#" data-goto="2" style="text-decoration:underline;color:var(--primary)">swap screen</a> is live in v1.</p>
+  </section>
+
+  <div class="pager">
+    <button class="btn" id="prev"><i class="ph-bold ph-arrow-left"></i> Back</button>
+    <span class="count" id="count">Stage 1 of 5</span>
+    <button class="btn primary" id="next">Next <i class="ph-bold ph-arrow-right"></i></button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var stages=[].slice.call(document.querySelectorAll('.stage'));
+  var steps=[].slice.call(document.querySelectorAll('.step'));
+  var tbContext=document.getElementById('tb-context');
+  var tbWho=document.getElementById('tb-who');
+  var prev=document.getElementById('prev'), next=document.getElementById('next'), count=document.getElementById('count');
+  var i=0;
+  function show(n){
+    i=Math.max(0,Math.min(stages.length-1,n));
+    stages.forEach(function(s,k){s.classList.toggle('active',k===i);});
+    steps.forEach(function(s,k){s.classList.toggle('here',k===i);s.classList.toggle('done',k<i);});
+    var st=stages[i];
+    document.body.classList.toggle('patient', st.getAttribute('data-role')==='patient');
+    tbContext.textContent=st.getAttribute('data-context')||'walkthrough';
+    tbWho.innerHTML=st.getAttribute('data-who')||'';
+    count.textContent='Stage '+(i+1)+' of '+stages.length;
+    prev.disabled=(i===0); next.disabled=(i===stages.length-1);
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  prev.addEventListener('click',function(){show(i-1);});
+  next.addEventListener('click',function(){show(i+1);});
+  document.querySelectorAll('[data-goto]').forEach(function(el){
+    el.addEventListener('click',function(e){e.preventDefault();show(parseInt(el.getAttribute('data-goto'),10));});
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.target.closest && e.target.closest('.food')) return;   // let the food picker own arrows
+    if(e.key==='ArrowLeft') show(i-1);
+    if(e.key==='ArrowRight') show(i+1);
+  });
+
+  var confirmBtn=document.getElementById('confirm');
+  if(confirmBtn) confirmBtn.addEventListener('click',function(){
+    var p=document.getElementById('published'); if(p) p.hidden=false;
+    confirmBtn.disabled=true; confirmBtn.style.opacity=.6; confirmBtn.style.cursor='default';
+  });
+
+  (function(){
+    var grid=document.getElementById('foodgrid'); if(!grid) return;
+    var GAP=9, cards=[].slice.call(grid.querySelectorAll('.food')), big=document.getElementById('result-big');
+    function fraction(n){var w=Math.floor(n);var f={0:'',0.25:'¼',0.5:'½',0.75:'¾'}[Math.round((n-w)*4)/4]||'';return w===0?f:w+f;}
+    function update(card){var mg=parseFloat(card.getAttribute('data-mg'));var cups=Math.ceil(GAP/mg*4)/4;
+      var unit=cups===1?'cup':'cups';big.textContent='~'+fraction(cups)+' '+unit+' of '+card.getAttribute('data-name')+' ('+card.getAttribute('data-prep')+')';}
+    cards.forEach(function(card,k){
+      card.addEventListener('click',function(){
+        cards.forEach(function(c){c.classList.remove('active');c.setAttribute('aria-pressed','false');});
+        card.classList.add('active');card.setAttribute('aria-pressed','true');update(card);
+      });
+      card.addEventListener('keydown',function(e){
+        if(e.key==='Enter'||e.key===' '){e.preventDefault();card.click();}
+        var step={ArrowLeft:-1,ArrowRight:1,ArrowUp:-2,ArrowDown:2}[e.key];
+        if(step){e.preventDefault();var nx=cards[k+step];if(nx)nx.focus();}
+      });
+    });
+  })();
+
+  show(0);
+})();
+</script>
+</body></html>

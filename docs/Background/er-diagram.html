@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Savor — ER Diagram (single view)</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+<style>
+  :root{
+    --primary:#1d4ed8; --primary-strong:#1e40af; --primary-deep:#172554;
+    --primary-soft:#dbeafe; --primary-tint:#eff6ff;
+    --bg:#eef2f8; --card:#fff; --muted:#f1f5f9;
+    --fg:#0f172a; --muted-fg:#64748b; --border:#e2e8f0;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+    --auth:#1d4ed8; --clin:#7c3aed; --treat:#059669; --behav:#d97706; --ref:#dc2626;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:14px; background:var(--bg); color:var(--fg);
+    -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  }
+  .header{
+    background:linear-gradient(135deg,var(--primary-deep),var(--primary-strong));
+    color:#fff; padding:16px 28px; display:flex; align-items:center; gap:14px; flex:none;
+    box-shadow:0 4px 18px rgba(23,37,84,.28); z-index:20;
+  }
+  .header .mark{width:38px;height:38px;background:rgba(255,255,255,.16);border-radius:11px;display:grid;place-items:center;font-size:20px;flex:none;border:1px solid rgba(255,255,255,.22);}
+  .header h1{font-size:18px;font-weight:700;letter-spacing:-.02em;}
+  .header p{font-size:12px;opacity:.72;margin-top:1px;}
+  .header .sp{margin-left:auto;}
+  .badge{font-size:11px;font-weight:600;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:5px 11px;white-space:nowrap;}
+  .badge.green{background:rgba(16,185,129,.28);border-color:rgba(16,185,129,.45);}
+
+  .toolbar{
+    background:var(--card); border-bottom:1px solid var(--border); flex:none;
+    display:flex; align-items:center; gap:18px; padding:9px 28px; flex-wrap:wrap; z-index:15;
+  }
+  .legend{display:flex;gap:15px;flex-wrap:wrap;align-items:center;}
+  .legend .t{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);}
+  .legend .li{display:flex;align-items:center;gap:6px;font-size:12px;}
+  .legend .sw{width:13px;height:13px;border-radius:4px;flex:none;border:1px solid rgba(0,0,0,.08);}
+  .rel-legend{display:flex;gap:14px;align-items:center;font-size:11.5px;color:var(--muted-fg);}
+  .rel-legend code{font-family:var(--mono);background:var(--muted);padding:1px 6px;border-radius:5px;color:var(--fg);}
+  .ctrls{margin-left:auto;display:flex;gap:6px;align-items:center;}
+  .ctrls button{
+    font-family:inherit;font-size:13px;font-weight:600;color:var(--primary-strong);
+    background:var(--primary-tint);border:1px solid var(--primary-soft);border-radius:8px;
+    padding:6px 10px;cursor:pointer;transition:.12s;line-height:1;min-width:34px;
+  }
+  .ctrls button:hover{background:var(--primary-soft);}
+  .ctrls .fit{padding:6px 12px;}
+  .hint{font-size:11.5px;color:var(--muted-fg);}
+
+  .stage{flex:1;position:relative;overflow:hidden;background:
+    radial-gradient(circle at 1px 1px, rgba(15,23,42,.06) 1px, transparent 0) 0 0/22px 22px, var(--bg);}
+  #erd{width:100%;height:100%;}
+  #erd svg{display:block;max-width:none;}
+  .loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted-fg);font-size:14px;}
+
+  /* Mermaid ER tuning */
+  #erd .er.entityBox{stroke-width:1.4px;}
+  #erd .er.relationshipLabelBox{fill:#fff;opacity:.9;}
+  #erd .er.relationshipLabel{font-size:11px;fill:var(--muted-fg);}
+  #erd .er.entityLabel{font-family:var(--mono)!important;font-weight:700;}
+  #erd text{font-family:var(--mono);}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="mark">🌿</div>
+  <div>
+    <h1>Smart Savor — Entity Relationship Diagram</h1>
+    <p>PostgreSQL + pgvector · 23 entities · full attributes &amp; relationships · one view</p>
+  </div>
+  <div class="sp"></div>
+  <span class="badge">v1 Schema</span>
+  <span class="badge green">2026-07-11</span>
+</header>
+
+<div class="toolbar">
+  <div class="legend">
+    <span class="t">Domains</span>
+    <span class="li"><span class="sw" style="background:#dbeafe;border-color:#1d4ed8"></span>Auth &amp; Tenancy</span>
+    <span class="li"><span class="sw" style="background:#ede9fe;border-color:#7c3aed"></span>Clinical</span>
+    <span class="li"><span class="sw" style="background:#d1fae5;border-color:#059669"></span>Treatment</span>
+    <span class="li"><span class="sw" style="background:#fef3c7;border-color:#d97706"></span>Behavioral</span>
+    <span class="li"><span class="sw" style="background:#fee2e2;border-color:#dc2626"></span>Reference</span>
+  </div>
+  <div class="rel-legend">
+    <span class="t" style="font-size:10.5px">Read</span>
+    <code>||</code>one <code>o{</code>many <code>o|</code>zero/one
+  </div>
+  <div class="ctrls">
+    <span class="hint">scroll = zoom · drag = pan</span>
+    <button id="zin" title="Zoom in">+</button>
+    <button id="zout" title="Zoom out">−</button>
+    <button id="fit" class="fit" title="Fit to screen">Fit</button>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="loading" id="loading">Rendering ER diagram…</div>
+  <div id="erd"><pre class="mermaid" id="src">
+%%{init: {'theme':'base','themeVariables':{
+  'primaryColor':'#ffffff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
+  'lineColor':'#94a3b8','fontSize':'12px','fontFamily':'Inter, sans-serif'
+}}}%%
+erDiagram
+  %% ─── AUTH & TENANCY ───
+  practices {
+    uuid id PK
+    varchar name
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  users {
+    uuid id PK
+    varchar email UK
+    varchar password_hash
+    varchar role "dietitian|patient"
+    uuid dietitian_id FK
+    uuid patient_id FK
+    boolean is_active
+    timestamptz last_login_at
+    varchar password_reset_token
+    timestamptz reset_expiry
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  dietitians {
+    uuid id PK
+    uuid practice_id FK
+    varchar name
+    varchar credential
+    varchar email
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  patients {
+    uuid id PK
+    uuid practice_id FK
+    varchar name
+    date date_of_birth
+    smallint age
+    varchar gender
+    varchar blood_group
+    numeric bmi
+    smallint bp_systolic
+    smallint bp_diastolic
+    text_array conditions
+    text_array restrictions
+    text_array dislikes
+    numeric weekly_budget_usd
+    jsonb report_meta
+    timestamptz enrolled_at
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  patient_dietitians {
+    uuid id PK
+    uuid patient_id FK
+    uuid dietitian_id FK
+    boolean is_primary
+    timestamptz started_at
+    timestamptz ended_at "NULL=active"
+    text reason
+    timestamptz created_at
+  }
+
+  %% ─── CLINICAL ───
+  nutrient_gaps {
+    uuid id PK
+    uuid patient_id FK
+    varchar nutrient
+    numeric current_value
+    numeric target_value
+    varchar unit
+    varchar severity
+    uuid source_lab_id FK
+    uuid set_by FK
+    boolean is_active
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  cycles {
+    uuid id PK
+    uuid patient_id FK
+    varchar cycle_slug
+    date start_date
+    date retest_due_date
+    varchar status "cycle_status"
+    uuid baseline_lab_id FK
+    uuid retest_lab_id FK
+    uuid previous_cycle_id FK
+    smallint focus_set_version
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  focus_set_items {
+    uuid id PK
+    uuid cycle_id FK
+    uuid nutrient_gap_id FK
+    smallint version
+    smallint rank
+    text why
+    varchar pair_with
+    varchar conflicts_with
+    numeric priority_score
+    varchar outcome_status
+    timestamptz created_at
+  }
+  lab_reports {
+    uuid id PK
+    uuid patient_id FK
+    uuid uploaded_by FK
+    varchar kind "lab_kind"
+    date date_collected
+    date date_received
+    varchar fasting
+    varchar ordering_physician
+    varchar performing_lab
+    varchar report_status
+    varchar overall_status
+    varchar s3_key
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  lab_analytes {
+    uuid id PK
+    uuid lab_report_id FK
+    varchar panel
+    varchar name
+    numeric value
+    varchar unit
+    varchar reference_text
+    numeric reference_low
+    numeric reference_high
+    varchar flag "analyte_flag"
+    numeric prior_value
+    date prior_date
+    numeric confidence
+    boolean needs_review
+    boolean is_product_relevant
+    timestamptz created_at
+  }
+  cycle_outcomes {
+    uuid id PK
+    uuid cycle_id FK
+    uuid focus_set_item_id FK
+    uuid nutrient_gap_id FK
+    numeric baseline_value
+    numeric retest_value
+    numeric delta
+    boolean improved
+    varchar outcome_status
+    numeric adherence_pct
+    varchar adherence_classification
+    timestamptz computed_at
+    timestamptz created_at
+  }
+
+  %% ─── TREATMENT PATH ───
+  approved_lists {
+    uuid id PK
+    uuid patient_id FK
+    uuid nutrient_gap_id FK
+    varchar status "draft|ratified"
+    uuid drafted_by_cycle FK
+    uuid ratified_by FK
+    timestamptz ratified_at
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  approved_list_items {
+    uuid id PK
+    uuid approved_list_id FK
+    varchar food_name
+    varchar fdc_id "soft-ref"
+    varchar serving_description
+    numeric serving_size_g
+    numeric amount_per_serving
+    varchar unit
+    smallint servings_to_close
+    numeric price_per_serving_usd
+    numeric disruption_score
+    text comorbidity_flag
+    text why
+    smallint rank
+    timestamptz removed_at
+    uuid removed_by FK
+    timestamptz created_at
+  }
+  patient_choices {
+    uuid id PK
+    uuid patient_id FK
+    uuid cycle_id FK
+    uuid nutrient_gap_id FK
+    uuid approved_list_item_id FK
+    varchar food_name
+    varchar serving_description
+    numeric amount_per_serving
+    varchar unit
+    smallint servings_per_week
+    numeric gap_target
+    numeric gap_closed_pct
+    boolean still_approved
+    timestamptz chosen_at
+    timestamptz superseded_at
+  }
+
+  %% ─── BEHAVIORAL ───
+  receipts {
+    uuid id PK
+    uuid patient_id FK
+    timestamptz upload_date
+    date purchased_at
+    varchar retailer
+    varchar s3_key
+    varchar parse_status
+    varchar agent_run_id
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  receipt_line_items {
+    uuid id PK
+    uuid receipt_id FK
+    varchar raw_text
+    varchar matched_food
+    varchar fdc_id
+    numeric quantity
+    numeric price_usd
+    numeric match_confidence
+    varchar match_flag
+    timestamptz created_at
+  }
+  habit_model {
+    uuid id PK
+    uuid patient_id FK
+    varchar food_name
+    varchar fdc_id
+    numeric freq_per_week
+    date last_seen_date
+    varchar source
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  consumption_events {
+    uuid id PK
+    uuid patient_id FK
+    varchar food_name
+    varchar fdc_id
+    text raw_input
+    date consumed_date
+    varchar source "consultation_source"
+    smallint confidence_tier
+    numeric match_confidence
+    varchar flag
+    uuid source_nudge_id FK
+    uuid source_receipt_id FK
+    timestamptz created_at
+  }
+  nudges {
+    uuid id PK
+    uuid patient_id FK
+    uuid cycle_id FK
+    uuid nutrient_gap_id FK
+    varchar food_name
+    text message
+    timestamptz sent_at
+    date week_number UK
+    varchar response "yes|no|null"
+    timestamptz responded_at
+    timestamptz created_at
+  }
+
+  %% ─── REFERENCE DATA ───
+  grocery_items {
+    uuid id PK
+    varchar fdc_id UK
+    varchar product_name
+    varchar brand
+    varchar department
+    varchar category
+    numeric price_usd
+    varchar package_size
+    numeric price_per_100g_usd
+    varchar usda_description
+    varchar usda_source
+    varchar match_confidence
+    numeric serving_size_g
+    varchar household_serving
+    numeric nutrients_per_100g "12 nutrients + macros"
+    text data_flags
+    date price_snapshot_date
+    timestamptz created_at
+  }
+  food_embeddings {
+    uuid id PK
+    uuid grocery_item_id FK
+    varchar fdc_id
+    vector embedding "1536-dim"
+    text embedding_source
+    varchar model
+    timestamptz created_at
+  }
+  contraindication_rules {
+    uuid id PK
+    varchar condition
+    varchar target_type "nutrient|food"
+    varchar target_value
+    varchar severity "hard_exclude|soft_flag"
+    text reason
+    varchar evidence_source
+    boolean is_active
+    uuid created_by FK
+    uuid updated_by FK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  agent_traces {
+    uuid id PK
+    varchar langfuse_trace_id
+    varchar agent_name
+    uuid patient_id FK
+    uuid cycle_id FK
+    varchar trigger
+    varchar model
+    integer input_tokens
+    integer output_tokens
+    numeric cost_usd
+    varchar status
+    text error_message
+    timestamptz created_at
+  }
+
+  %% ─── RELATIONSHIPS ───
+  practices ||--o{ dietitians : "employs"
+  practices ||--o{ patients : "manages"
+  dietitians ||--o| users : "logs in as"
+  patients ||--o| users : "logs in as"
+  patients ||--o{ patient_dietitians : "assigned via"
+  dietitians ||--o{ patient_dietitians : "manages via"
+
+  patients ||--o{ nutrient_gaps : "has"
+  dietitians ||--o{ nutrient_gaps : "flags (set_by)"
+  patients ||--o{ cycles : "enrolled in"
+  patients ||--o{ lab_reports : "has"
+  dietitians ||--o{ lab_reports : "uploads"
+  lab_reports ||--o{ lab_analytes : "contains"
+  lab_reports ||--o{ nutrient_gaps : "sources"
+  lab_reports ||--o{ cycles : "baseline of"
+  lab_reports ||--o{ cycles : "retest of"
+  cycles ||--o| cycles : "follows (prev)"
+  cycles ||--o{ focus_set_items : "contains"
+  nutrient_gaps ||--o{ focus_set_items : "focused as"
+  cycles ||--o{ cycle_outcomes : "produces"
+  focus_set_items ||--o{ cycle_outcomes : "measured by"
+  nutrient_gaps ||--o{ cycle_outcomes : "for gap"
+
+  patients ||--o{ approved_lists : "has"
+  nutrient_gaps ||--o{ approved_lists : "addresses"
+  cycles ||--o{ approved_lists : "drafted in"
+  dietitians ||--o{ approved_lists : "ratifies"
+  approved_lists ||--o{ approved_list_items : "contains"
+  dietitians ||--o{ approved_list_items : "removes"
+  patients ||--o{ patient_choices : "makes"
+  cycles ||--o{ patient_choices : "in cycle"
+  nutrient_gaps ||--o{ patient_choices : "for gap"
+  approved_list_items ||--o{ patient_choices : "selected as"
+
+  patients ||--o{ receipts : "uploads"
+  receipts ||--o{ receipt_line_items : "contains"
+  patients ||--o{ habit_model : "aggregated into"
+  patients ||--o{ consumption_events : "logs"
+  nudges ||--o{ consumption_events : "confirmed via"
+  receipts ||--o{ consumption_events : "inferred from"
+  patients ||--o{ nudges : "receives"
+  cycles ||--o{ nudges : "sent during"
+  nutrient_gaps ||--o{ nudges : "for gap"
+
+  grocery_items ||--|| food_embeddings : "embedded as"
+  dietitians ||--o{ contraindication_rules : "authors"
+  patients ||--o{ agent_traces : "traced by"
+  cycles ||--o{ agent_traces : "traced by"
+  </pre></div>
+</div>
+
+<script>
+const DOMAIN = {
+  auth:  {tint:"#eff6ff", box:"#dbeafe", line:"#1d4ed8", tables:["practices","users","dietitians","patients","patient_dietitians"]},
+  clin:  {tint:"#f5f3ff", box:"#ede9fe", line:"#7c3aed", tables:["nutrient_gaps","cycles","focus_set_items","lab_reports","lab_analytes","cycle_outcomes"]},
+  treat: {tint:"#ecfdf5", box:"#d1fae5", line:"#059669", tables:["approved_lists","approved_list_items","patient_choices"]},
+  behav: {tint:"#fffbeb", box:"#fef3c7", line:"#d97706", tables:["receipts","receipt_line_items","habit_model","consumption_events","nudges"]},
+  ref:   {tint:"#fef2f2", box:"#fee2e2", line:"#dc2626", tables:["grocery_items","food_embeddings","contraindication_rules","agent_traces"]},
+};
+const TABLE_DOMAIN = {};
+for (const [k,v] of Object.entries(DOMAIN)) v.tables.forEach(t=>TABLE_DOMAIN[t]=v);
+
+// Tint each entity block by its domain (best-effort; robust to Mermaid version quirks).
+function colorByDomain(svg){
+  try{
+    const labels = svg.querySelectorAll("text.er.entityLabel, text.entityLabel");
+    let hit = 0;
+    labels.forEach(lbl=>{
+      const name = (lbl.textContent||"").trim();
+      const d = TABLE_DOMAIN[name];
+      if(!d) return;
+      // walk up to the entity group that owns the outer entityBox rect
+      let g = lbl.parentElement;
+      while(g && g!==svg && !g.querySelector(":scope > rect.er.entityBox")) g = g.parentElement;
+      const box = g && g.querySelector(":scope > rect.er.entityBox");
+      if(box){
+        box.style.fill = d.tint;
+        box.style.stroke = d.line;
+        box.style.strokeWidth = "1.6px";
+        hit++;
+      }
+      lbl.style.fill = d.line;
+      lbl.style.fontWeight = "700";
+    });
+    return hit;
+  }catch(e){ return 0; }
+}
+
+(async ()=>{
+  mermaid.initialize({
+    startOnLoad:false, securityLevel:"loose",
+    er:{ useMaxWidth:true, entityPadding:14, minEntityWidth:110, minEntityHeight:22,
+         diagramPadding:24, layoutDirection:"LR" }
+  });
+  await mermaid.run({ querySelector:".mermaid" });
+
+  const svg = document.querySelector("#erd svg");
+  document.getElementById("loading").style.display = "none";
+  if(!svg) return;
+
+  colorByDomain(svg);
+
+  // svg-pan-zoom reads the width/height ATTRIBUTES for its viewport size, so they must be
+  // explicit pixels (a "100%" attribute is misread as ~100px and collapses the fit).
+  const stage = document.querySelector(".stage");
+  const sizeSvg = ()=>{ svg.setAttribute("width", stage.clientWidth); svg.setAttribute("height", stage.clientHeight); };
+  sizeSvg();
+
+  const pz = svgPanZoom(svg, {
+    zoomEnabled:true, controlIconsEnabled:false, fit:true, center:true,
+    minZoom:0.08, maxZoom:14, zoomScaleSensitivity:0.3, dblClickZoomEnabled:false
+  });
+  const refit = ()=>{ sizeSvg(); pz.resize(); pz.updateBBox(); pz.fit(); pz.center(); };
+  refit();
+  setTimeout(refit, 150);
+  setTimeout(refit, 600);
+
+  let rt; window.addEventListener("resize", ()=>{ clearTimeout(rt); rt=setTimeout(refit,120); });
+  document.getElementById("zin").onclick  = ()=>pz.zoomIn();
+  document.getElementById("zout").onclick = ()=>pz.zoomOut();
+  document.getElementById("fit").onclick  = refit;
+})();
+</script>
+</body>
+</html>

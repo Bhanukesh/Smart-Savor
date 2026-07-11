@@ -135,7 +135,7 @@ bought-but-not-logged; consumption confidence ranked photo > nudge-confirmed > i
 
 **Phase 3 — Proof & infra**
 11. New MCP tools: `save_lab`, `get_outcomes`, `get_adherence`. Lab loop + D4 outcome screen.
-12. Clerk auth, encryption, Langfuse traces, cost cap, deploy (HTTPS).
+12. Custom dual-portal auth (no Clerk — see `tech-stack.md` §6 / `er-design.md` §Part 1), encryption, Langfuse traces, cost cap, deploy (HTTPS).
 
 **Phase 4 — Post-MVP / expansion** (documented, not built for capstone)
 13. Cycle Outcome Analyst + dose-response. **Agent 7 — Fulfillment / Cart-Builder** (Weekly Fresh

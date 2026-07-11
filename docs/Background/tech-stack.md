@@ -14,7 +14,7 @@
 | LLM | **Claude — Opus 4.8 / Sonnet 4.6 / Haiku 4.5** | Tiered by task (see §3) |
 | Sources | **3 MCP servers (2 off-the-shelf + 1 custom)** | Bar 3 requirement |
 | Datastore | **PostgreSQL (+ pgvector)** | Relational patient/cycle data + semantic match for the Food Matcher |
-| Auth | **Clerk** | Bar 6/7; gates health data |
+| Auth | **Custom — dual login portals (no Clerk)** | Bar 6/7; gates health data. Separate dietitian + patient logins over one `users` table (see `er-design.md` §Part 1) |
 | PDF | **WeasyPrint** | Bar 4 multi-modal output |
 | Email | **Resend** | Bar 4 optional 3rd output lane |
 | Observability | **Langfuse** | Bar 7 traces + spend ceiling |
@@ -64,9 +64,10 @@
 - **Object storage** (S3-compatible) for uploaded receipt images and generated PDFs.
 
 ## 6. Auth & Security (Bars 6–7)
-- **Clerk** — authentication, session management; gates all health data.
+- **Custom auth — two separate login portals (no third-party provider).** Dietitians log in at `/login/dietitian` → `/rx/*`; patients log in at `/login/patient` → `/me/*`. A shared `users` table holds credentials (email, bcrypt hash cost-12, `role`, nullable FK to `dietitians` or `patients`); the `role` column is the gate so a dietitian token can never reach a patient endpoint and vice versa. See `er-design.md` §Part 1 for the full table + auth-flow spec.
+- **Sessions** — httpOnly cookie + server-side Redis session (durable fallback row in Postgres); simpler to revoke than JWT.
 - **Encryption** — TLS in transit; encryption at rest for health data and receipts.
-- **Tenancy** — per-dietitian scoping (full multi-tenant isolation is a P2/future item, not capstone).
+- **Tenancy** — `practices` is the top-level tenant; patients + dietitians scope to a practice. Full multi-tenant isolation hardening is a P2/future item, not capstone.
 - **Stance:** security-conscious design; **no HIPAA-compliance claim** made.
 
 ## 7. Outputs (Bar 4 — multi-modal)

@@ -1,9 +1,24 @@
-@import "fonts.css";   /* self-hosted Inter (400/500/600/700 + italics) — single source */
 /* ============================================================
-   Smart Savor — Premium Design System
+   Smart Savor — Premium Design System (ported from the prototype)
    shadcn/ui + tweakcn token architecture · Blue & White theme
-   Type: Inter (body + display) · Icons: Phosphor
+   Type: Inter (body + display, self-hosted) · Icons: Phosphor
    ============================================================ */
+
+/* self-hosted Inter (variable) — served from /public/fonts */
+@font-face{
+  font-family:"Inter";
+  font-style:normal;
+  font-weight:100 900;
+  font-display:swap;
+  src:url("/fonts/Inter-Variable.ttf") format("truetype");
+}
+@font-face{
+  font-family:"Inter";
+  font-style:italic;
+  font-weight:100 900;
+  font-display:swap;
+  src:url("/fonts/Inter-Italic-Variable.ttf") format("truetype");
+}
 
 :root{
   /* --- shadcn/tweakcn tokens --- */
@@ -59,10 +74,11 @@ body.patient{
     linear-gradient(180deg,#f8faff 0%,#f4f7fd 100%);
 }
 a{color:inherit;text-decoration:none}
+button{font-family:inherit}
 ::selection{background:var(--primary-soft)}
 
 .wrap{max-width:980px;margin:0 auto;padding:32px 28px 48px}
-.wrap.narrow{max-width:600px}
+.wrap.narrow{max-width:640px}
 
 /* --- Phosphor icon helpers --- */
 i.ph, i[class*="ph-"]{line-height:1;vertical-align:-.12em}
@@ -90,7 +106,7 @@ i.ph, i[class*="ph-"]{line-height:1;vertical-align:-.12em}
 .who{font-size:13px;color:var(--muted-foreground);display:flex;align-items:center;gap:7px}
 .who b{color:var(--foreground);font-weight:600}
 
-/* ============ Prototype nav ============ */
+/* ============ Prototype / portal nav ============ */
 .protonav{display:flex;gap:7px;flex-wrap:wrap;font-size:12.5px;font-weight:500}
 .protonav a{
   display:inline-flex;align-items:center;gap:6px;
@@ -169,6 +185,7 @@ a.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color
 }
 .btn.primary:hover{background:linear-gradient(180deg,var(--primary),var(--primary-strong));color:#fff}
 .btn.sm{padding:7px 13px;font-size:13px;border-radius:10px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 
 /* ============ List rows ============ */
@@ -205,6 +222,7 @@ a.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color
   height:100%;border-radius:999px;
   background:linear-gradient(90deg,#60a5fa,var(--primary));
   box-shadow:0 1px 3px rgba(29,78,216,.3);
+  transition:width .5s ease;
 }
 .track .fill.done{background:linear-gradient(90deg,#34d399,var(--success))}
 .track .target{position:absolute;top:-4px;bottom:-4px;width:2.5px;border-radius:2px;background:var(--primary-deep)}
@@ -216,8 +234,10 @@ a.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color
 .food{
   border:1.5px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;
   background:#fff;transition:.18s;position:relative;box-shadow:var(--shadow-xs);
+  text-align:left;width:100%;font:inherit;color:inherit;
 }
 .food:hover{border-color:var(--accent);box-shadow:var(--shadow);transform:translateY(-1px)}
+.food:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
 .food.active{
   border-color:var(--primary);background:var(--primary-tint);
   box-shadow:0 0 0 3px var(--primary-soft),var(--shadow);
@@ -242,23 +262,7 @@ a.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color
 .footer-tip{font-size:12.5px;color:var(--muted-foreground);text-align:center;margin:26px auto 0;max-width:60ch;line-height:1.6}
 .kbd{font:inherit;font-size:11px;background:var(--muted);border:1px solid var(--border);border-radius:6px;padding:1px 7px}
 
-/* ============ Walkthrough — stepper + paginated stages ============ */
-.stepper{display:flex;gap:7px;flex-wrap:wrap;margin:18px 0 8px}
-.step{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border:1px solid var(--border);
-  border-radius:999px;background:#fff;color:var(--muted-foreground);font-size:12.5px;font-weight:600;
-  cursor:pointer;transition:.18s;box-shadow:var(--shadow-xs)}
-.step:hover{border-color:var(--accent);color:var(--primary);background:var(--primary-tint)}
-.step .n{width:20px;height:20px;border-radius:999px;display:grid;place-items:center;font-size:11px;
-  background:var(--muted);color:var(--muted-foreground)}
-.step.here{background:linear-gradient(135deg,var(--primary),var(--primary-strong));color:#fff;
-  border-color:transparent;box-shadow:0 2px 8px rgba(29,78,216,.35)}
-.step.here .n{background:rgba(255,255,255,.25);color:#fff}
-.step.done{color:var(--primary-strong)}
-.step.done .n{background:var(--success-soft);color:var(--success)}
-.stage{display:none;animation:stagein .22s ease}
-.stage.active{display:block}
-@keyframes stagein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;
-  margin:26px 0 8px;border-top:1px solid var(--border);padding-top:18px}
-.pager .count{font-size:13px;color:var(--muted-foreground);font-weight:600}
-.pager .btn[disabled]{opacity:.45;cursor:not-allowed;background:#fff;color:var(--muted-foreground);border-color:var(--border)}
+/* ============ Landing hero + portal cards ============ */
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;margin:22px 0 6px}
+.stage-badge{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--primary);
+  display:inline-flex;align-items:center;gap:6px;margin-bottom:8px}
