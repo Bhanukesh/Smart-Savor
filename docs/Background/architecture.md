@@ -54,7 +54,7 @@ Postgres. **The MCP tool surface is the contract and does not change** across th
 | Patient chooses | 4 Swap Sourcing (recompute) | **`get_approved_list`** (new), **`save_patient_choice`** (new) | P2 |
 | Sustain | 5 Nudge | **`get_bought_not_logged`** (new), **`record_nudge`/`record_nudge_response`** (new) | P4, nudge |
 | Prove | (Outcome Analyst, post-MVP) | **`save_lab`**, **`get_outcomes`**, **`get_adherence`** (new) | D4 |
-| Conduct | 6 Orchestrator | all of the above, on triggers | — |
+| Conduct | 6 Orchestrator *(deferred, post-MVP)* | all of the above, on triggers | — |
 
 ---
 
@@ -130,7 +130,7 @@ bought-but-not-logged; consumption confidence ranked photo > nudge-confirmed > i
 6. New MCP tools: `log_consumption`, `get_consumption`, `get_bought_not_logged`, `record_nudge(_response)`.
 7. **Agent 2 — Ingestion: receipts + logs** + reconciliation (code) + confidence model.
 8. **Agent 5 — Nudge** (weekly cadence, bought-not-logged trigger).
-9. **Agent 6 — Orchestrator** + triggers (new_lab / receipt / log / budget / weekly_cron / price).
+9. **Agent 6 — Orchestrator** + triggers (new_lab / receipt / log / budget / weekly_cron / price). ⏸ *Deferred — post-MVP; v1 re-plans on-demand per user action + a simple weekly nudge job.*
 10. UI: P4 macro/mineral dashboard (honesty guardrail) + nudge surface + D2 adherence read.
 
 **Phase 3 — Proof & infra**

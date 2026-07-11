@@ -7,3 +7,10 @@ __pycache__/
 # Raw USDA FoodData Central source releases — 2.9GB, files >GitHub's 100MB limit.
 # Reproducible from fdc.nal.usda.gov; the curated output lives in docs/Dataset/.
 docs/USDA Datasets/
+
+# Local Claude Code config (the shared skill under .claude/skills/ IS committed).
+.claude/settings.local.json
+
+# Raw Inter font download (20MB, 56 static files). The variable fonts actually used
+# live in docs/6 deliverables/prototype/fonts/.
+docs/Inter/

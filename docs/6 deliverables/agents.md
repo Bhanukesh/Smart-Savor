@@ -7,7 +7,7 @@ agents that run the live product, (B) dev-time Claude Code subagents that help b
 evaluable reasoning task. Code = deterministic. Don't promote up the ladder without a reason.
 
 **Numbering follows the product lifecycle:** 1 Intake → 2 Ingestion → 3 Prioritization →
-4 Swap Sourcing → 5 Nudge → 6 Orchestrator (the cross-cutting conductor).
+4 Swap Sourcing → 5 Nudge. *(6 Orchestrator — the cross-cutting conductor — is **deferred to post-MVP**, not built for v1.)*
 
 **How to read "How it uses AI":** each agent lists exactly where an LLM does the reasoning vs. what
 stays deterministic code. The AI earns its place only where there's genuine judgment; everything
@@ -18,7 +18,8 @@ tallyable stays code (cheaper, testable, and honest).
 # Part A — Product Runtime Agents
 
 Orchestrated by the **Claude Agent SDK runner**. Two Skills (Food Matcher, Gap Resolver) are shared
-tools, not agents. Six agents; Agent 1 (Intake) is already built.
+tools, not agents. **Five agents build for v1** (Agent 6 Orchestrator is **deferred — post-MVP**);
+Agent 1 (Intake) is already built.
 
 ```
   onboard ──────────────▶ observe ──────▶ prioritize ─▶ recommend ─▶ sustain
@@ -33,7 +34,7 @@ tools, not agents. Six agents; Agent 1 (Intake) is already built.
                     │        Postgres + price×nutrient join (code)          │
                     └───────────────────────────────────────────────────────┘
               ┌──────────────────────────────┐
-   triggers ─▶│ 6. Re-planning Orchestrator  │  (cross-cutting conductor — dispatches 1–5)
+   triggers ─▶│ 6. Re-planning Orchestrator  │  (conductor — DEFERRED, post-MVP)
  (new lab,    └──────────────────────────────┘
   receipt, log, budget, dislike, weekly cron, price refresh)
 ```
@@ -113,7 +114,12 @@ tools, not agents. Six agents; Agent 1 (Intake) is already built.
 - **Output:** one weekly nudge; a between-visit adherence read for the dietitian dashboard.
 - **Tools:** Health & Pantry MCP, notification/Resend.
 
-### Agent 6 — Re-planning Orchestrator (the conductor)  ·  Sonnet 4.6
+### Agent 6 — Re-planning Orchestrator (the conductor)  ·  Sonnet 4.6  ·  ⏸ DEFERRED (post-MVP)
+> **Deferred — not built for v1.** In v1, re-planning happens **on-demand**: the API layer invokes the
+> affected agent directly when a user acts (e.g. a new receipt runs Agent 2), and the weekly nudge
+> (Agent 5) runs on a simple scheduled job. The autonomous trigger-routing orchestrator below is the
+> future state, kept here for the roadmap.
+
 *Cross-cutting: runs across the whole lifecycle, dispatching Agents 1–5.*
 - **Responsibility:** background planning that re-plans. Wakes on triggers, decides *what changed*,
   re-runs only the affected agents, summarizes for the dietitian.
@@ -161,7 +167,7 @@ Join-Pipeline Builder + MCP Scaffolder concurrently during the data spike).
 ---
 
 ## Mapping to capstone bars
-- **Bar 2 (re-plans):** Agent 6 Orchestrator + Agent 5 weekly nudge loop.
+- **Bar 2 (re-plans):** the **Agent 5 weekly nudge loop** + on-demand agent re-runs cover this in v1; the full **Agent 6 Orchestrator (trigger-routing) is deferred to post-MVP**.
 - **Bar 3 (sources, custom MCP):** all agents read via the MCP servers; MCP Scaffolder builds the custom one.
 - **Bar 5 (Skills, dual-invocation):** Skill A used by Agent 2 (prod) **and** the Join-Pipeline Builder
   subagent (dev) → dual-invocation. Skill B used by Agent 4.
@@ -172,7 +178,7 @@ Join-Pipeline Builder + MCP Scaffolder concurrently during the data spike).
 1. **Spike:** Join-Pipeline Builder + Receipt/Log-Parse Tester + MCP Scaffolder → validate the data layer.
 2. **USP core:** Agent 4 (Swap Sourcing + approved-list drafting, w/ Comorbidity-Rules Curator) — the
    priority; then Agent 3 (Prioritization). Agent 1 (Intake) already built.
-3. **The loop:** Agent 2 (receipts + logs) → Agent 5 (nudge) → Agent 6 (orchestrator + triggers).
+3. **The loop:** Agent 2 (receipts + logs) → Agent 5 (nudge). *(Agent 6 orchestrator + triggers — deferred to post-MVP.)*
 4. **UI:** UI Component Builder against the spec (the USP moment first).
 5. **Post-MVP:** Cycle Outcome Analyst (+ dose-response).
 

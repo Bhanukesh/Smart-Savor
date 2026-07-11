@@ -73,7 +73,7 @@ intake (BUILT) → prioritization → receipt → swap → re-test
 | Act 2 · the swap menu | Agent 4 — Swap Sourcing (`query_nutrient_sources`) | prompt only; store implemented |
 | Act 2 · macro/mineral dashboard | **net-new UI** — targets trending into range | not spec'd |
 | Act 2.5 · photo logs + weekly nudge | Agent 5 — Nudge / Adherence (net-new) | not spec'd |
-| all · keeps the plan current | Agent 6 — Re-planning Orchestrator (`weekly_cron`, `new_receipt`) | prompt only |
+| all · keeps the plan current | Agent 6 — Re-planning Orchestrator ⏸ *deferred, post-MVP* (demo simulates it via on-demand re-runs) | out of scope v1 |
 
 ---
 
@@ -189,8 +189,8 @@ Maria sees *how* the app knows, not just that it thinks it knows — consistent 
 no-fabrication principle (`needs_review`, honest about missing data).
 
 **What Maria gets:** a between-visit adherence read (her sub-job #3, "see behavior between
-visits") — the thing charting tools can't give her. *(Orchestrated by Agent 6 on its
-`weekly_cron` and `new_receipt` triggers.)*
+visits") — the thing charting tools can't give her. *(In v1 this re-runs on-demand as receipts/logs
+arrive; the autonomous Agent 6 orchestrator that would automate it is post-MVP.)*
 
 ---
 
@@ -201,8 +201,9 @@ visits") — the thing charting tools can't give her. *(Orchestrated by Agent 6 
    - **Maria** has *proof her plan worked* — outcomes she can show patients, programs, payers.
    - **Sam** sees *cardiac risk actually moving* — a callback to the cold open, stakes resolved.
 
-Behind the scenes, Agent 6 (Re-planning Orchestrator) is what kept the plan current between
-visits — re-sourcing swaps as new receipts and prices arrived.
+Behind the scenes, the plan was kept current between visits — re-sourcing swaps as new receipts
+and prices arrived (in v1, on-demand per upload; the autonomous **Agent 6 Orchestrator** that would
+automate this is **deferred to post-MVP**).
 
 ---
 

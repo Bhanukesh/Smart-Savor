@@ -123,13 +123,15 @@ future. ⚠️ *Validate first* marks the riskiest assumptions.
 - **8.4** Patient list / caseload landing view.
 - **8.5** "Aha" screen treatment — *patient keeps buying X; here's the ratified menu he chose from.*
 
-### EPIC 9 — Background Re-Planning Engine `P0`
-*Not answer-on-demand — it re-plans and orchestrates the loop.*
-- **9.1** Scheduled **weekly regeneration** (`weekly_cron`) — re-source open gaps, fire the nudge loop.
+### EPIC 9 — Background Re-Planning Engine  ⏸ **DEFERRED (post-MVP)** — *(was `P0`)*
+*The autonomous orchestrator (Agent 6) is **not built for v1**. In v1, re-planning is **on-demand**
+(the API runs the affected agent when a user acts) plus a **simple scheduled weekly nudge**; the
+items below are the post-MVP target.*
+- **9.1** Scheduled **weekly regeneration** (`weekly_cron`) — re-source open gaps, fire the nudge loop. *(v1 keeps only the weekly nudge job.)*
 - **9.2** Re-plan on trigger: new lab uploaded *(headline)*, new receipt, new log, budget edit, item
-  disliked/unavailable, price refresh.
+  disliked/unavailable, price refresh. *(post-MVP — v1 handles these on-demand per user action.)*
 - **9.3** Headless Agent SDK runner invoking the agents in prod; do not recompute unaffected work
-  (cost discipline).
+  (cost discipline). *(post-MVP.)*
 
 ### EPIC 10 — Lab Outcome Loop & Attribution `P0`
 *The ground truth and the moat's fuel.*
@@ -173,7 +175,7 @@ future. ⚠️ *Validate first* marks the riskiest assumptions.
 ## Suggested Delivery Sequence
 1. **Spike (validate):** Epic 1 (ingestion accuracy) + Epic 2 (join). *Gate: is the wedge real?*
 2. **The USP core:** Epic 3 (approved lists) → Epic 4 (swap menu + choose/recompute) → Epic 8 (dietitian ratify/approve).
-3. **The loop:** Epic 5 (logging + reconciliation) → Epic 6 (nudge) → Epic 9 (re-planning) → Epic 7 (patient app).
+3. **The loop:** Epic 5 (logging + reconciliation) → Epic 6 (nudge) → Epic 7 (patient app). *(Epic 9 re-planning — deferred, post-MVP.)*
 4. **Proof:** Epic 10 (lab loop + attribution) + Epic 11 (security).
 5. **Demo:** Epic 13.
 6. **Fast-follow:** Epics 12. **Scale/monetize:** Epic 14.

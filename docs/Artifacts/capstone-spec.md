@@ -20,9 +20,9 @@ Two shared **Skills** (A Food Matcher, B Gap Resolver) are tools, not agents. Ag
 | 3 | **Cycle Prioritization** ⭐ | full lab deficiency list → confirmed **6–10 focus set** (severity × condition-relevance × synergy/conflict × disruption); dietitian confirms (D1.5) | Opus 4.8 | Health & Pantry MCP, USDA MCP |
 | 4 | **Swap Sourcing & Approved-List Drafting** ⭐ *(wraps Skill B, THE USP engine)* | `draft_list`: comorbidity-screened menu ranked by gap-closing efficiency then disruption; `patient_choice`: recompute amount Y | Sonnet 4.6 | Health & Pantry MCP, Open Food Facts MCP, Skill B |
 | 5 | **Nudge / Adherence** | one gentle **weekly (never daily)** nudge on bought-but-not-logged gap foods | Haiku 4.5 | Health & Pantry MCP, Resend |
-| 6 | **Re-planning Orchestrator** | background: decides what changed, re-runs only affected agents, summarizes | Sonnet 4.6 | scheduler (Celery/cron), the other agents |
+| 6 | **Re-planning Orchestrator** · ⏸ **DEFERRED (post-MVP)** | background trigger-routing across agents — *not built for v1; re-planning is on-demand instead* | Sonnet 4.6 | scheduler (Celery/cron), the other agents |
 
-*Post-MVP (documented, not built): Cycle Outcome Analyst (computes the dose-response), Agent 7 Fulfillment/Cart-Builder (Phase 3 fresh-produce, out of scope).*
+*Post-MVP (documented, not built): **Agent 6 Orchestrator**, Cycle Outcome Analyst (computes the dose-response), Agent 7 Fulfillment/Cart-Builder (Phase 3 fresh-produce, out of scope).*
 
 ---
 
@@ -36,7 +36,7 @@ Two shared **Skills** (A Food Matcher, B Gap Resolver) are tools, not agents. Ag
 - Reported metrics: **≥85%** of gaps have a viable gap-closing swap; **≥70%** swap approve/adjust rate; **≥80%** of patients get a usable habit model from receipts.
 
 ### Bar 2 — Background planning that re-plans
-Not answer-on-demand — driven by **Agent 6 (Orchestrator, Sonnet)** on a headless Agent SDK runner, which re-runs **only the affected agents** (cost discipline) and can fire **Agent 5 (Nudge, Haiku)**. Triggers route to specific agents:
+*(v1: the autonomous **Agent 6 Orchestrator is deferred to post-MVP**. In v1, re-planning is **on-demand** — the API layer runs the affected agent when a user acts — plus a scheduled **weekly nudge (Agent 5, Haiku)**. The trigger→agent routing below is the post-MVP design the Orchestrator will automate.)*
 - **New lab uploaded → targets shift** *(headline)* → Agent 3 (new focus-set draft)
 - New receipt → Agent 2, then Agent 4 for affected gaps
 - New consumption log → Agent 2 + **purchase-vs-consumption reconciliation**

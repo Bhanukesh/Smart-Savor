@@ -1,0 +1,18 @@
+/* Smart Savor — self-hosted Inter (variable). Imported by styles.css (line 1).
+   Two variable faces cover every weight (400/500/600/700) + italics.
+   License: SIL Open Font License — see fonts/OFL.txt. Relative paths for GitHub Pages. */
+
+@font-face{
+  font-family:"Inter";
+  font-style:normal;
+  font-weight:100 900;
+  font-display:swap;
+  src:url("fonts/Inter-Variable.ttf") format("truetype");
+}
+@font-face{
+  font-family:"Inter";
+  font-style:italic;
+  font-weight:100 900;
+  font-display:swap;
+  src:url("fonts/Inter-Italic-Variable.ttf") format("truetype");
+}

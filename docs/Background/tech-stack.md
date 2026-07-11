@@ -10,7 +10,7 @@
 |---|---|---|
 | Frontend | **Next.js (React) + TypeScript + Tailwind** | Two views (dietitian command center + patient app) from one app; fast to build the cycle/dashboard UIs |
 | Backend / API | **Python + FastAPI** | Same language as the agent layer and WeasyPrint; clean async API |
-| Agent runtime | **Claude Agent SDK (Python)** | Headless prod runner for background re-planning; invokes Skills |
+| Agent runtime | **Claude Agent SDK (Python)** | Runs the agents on-demand + invokes Skills *(autonomous background re-planning / Agent 6 is post-MVP)* |
 | LLM | **Claude — Opus 4.8 / Sonnet 4.6 / Haiku 4.5** | Tiered by task (see §3) |
 | Sources | **3 MCP servers (2 off-the-shelf + 1 custom)** | Bar 3 requirement |
 | Datastore | **PostgreSQL (+ pgvector)** | Relational patient/cycle data + semantic match for the Food Matcher |
