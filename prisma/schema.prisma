@@ -1,0 +1,214 @@
+// Smart Savor — Prisma schema.
+// Phase 2 slice: the tables behind the USP flow (prioritize → ratify → choose).
+// Mirrors docs/Background/er-design.md (23 tables total); the rest land in later increments.
+// Prisma models are camelCase; @@map/@map pin the DB names to the snake_case design.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Severity {
+  severe
+  moderate
+  mild
+}
+
+enum ApprovedListStatus {
+  draft
+  ratified
+}
+
+// approved_list_items has no explicit status column in the full schema (it's derived from
+// comorbidity_flag + removed_at). The slice carries an explicit enum for the ratify screen;
+// this collapses back to those columns when the full clinical model lands.
+enum ItemStatus {
+  approved
+  flagged
+  excluded
+}
+
+model Practice {
+  id         String      @id @default(uuid()) @db.Uuid
+  name       String
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  dietitians Dietitian[]
+  patients   Patient[]
+
+  @@map("practices")
+}
+
+model Dietitian {
+  id         String   @id @default(uuid()) @db.Uuid
+  practiceId String   @map("practice_id") @db.Uuid
+  practice   Practice @relation(fields: [practiceId], references: [id])
+  name       String
+  credential String?
+  email      String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  patients   Patient[]
+
+  @@map("dietitians")
+}
+
+model Patient {
+  id           String   @id @default(uuid()) @db.Uuid
+  practiceId   String   @map("practice_id") @db.Uuid
+  practice     Practice @relation(fields: [practiceId], references: [id])
+  // Slice simplification: a single primary dietitian FK. The full model uses the
+  // patient_dietitians join table (primary + co-management + history).
+  dietitianId  String?  @map("dietitian_id") @db.Uuid
+  dietitian    Dietitian? @relation(fields: [dietitianId], references: [id])
+  name         String
+  age          Int?
+  conditions   String[] @default([])
+  bmi          Decimal? @db.Decimal(5, 2)
+  bpSystolic   Int?     @map("bp_systolic")
+  bpDiastolic  Int?     @map("bp_diastolic")
+  // Headline biomarkers for the snapshot card. Full model normalizes these into
+  // lab_reports + lab_analytes; the slice keeps a display-only JSON array.
+  labs         Json?
+  enrolledAt   DateTime? @map("enrolled_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  nutrientGaps    NutrientGap[]
+  cycles          Cycle[]
+  approvedLists   ApprovedList[]
+  patientChoices  PatientChoice[]
+
+  @@index([practiceId])
+  @@map("patients")
+}
+
+model NutrientGap {
+  id           String   @id @default(uuid()) @db.Uuid
+  patientId    String   @map("patient_id") @db.Uuid
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  nutrient     String
+  label        String
+  currentValue Decimal  @map("current_value") @db.Decimal(10, 4)
+  targetValue  Decimal  @map("target_value") @db.Decimal(10, 4)
+  unit         String
+  severity     Severity
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  focusItems     FocusSetItem[]
+  approvedLists  ApprovedList[]
+  patientChoices PatientChoice[]
+
+  @@unique([patientId, nutrient])
+  @@index([patientId])
+  @@map("nutrient_gaps")
+}
+
+model Cycle {
+  id               String   @id @default(uuid()) @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  patient          Patient  @relation(fields: [patientId], references: [id])
+  cycleSlug        String?  @map("cycle_slug")
+  startDate        DateTime @map("start_date") @db.Date
+  retestDueDate    DateTime @map("retest_due_date") @db.Date
+  status           String   @default("active")
+  focusSetVersion  Int      @default(0) @map("focus_set_version")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  focusItems     FocusSetItem[]
+  patientChoices PatientChoice[]
+
+  @@index([patientId, status])
+  @@map("cycles")
+}
+
+model FocusSetItem {
+  id            String      @id @default(uuid()) @db.Uuid
+  cycleId       String      @map("cycle_id") @db.Uuid
+  cycle         Cycle       @relation(fields: [cycleId], references: [id])
+  nutrientGapId String      @map("nutrient_gap_id") @db.Uuid
+  nutrientGap   NutrientGap @relation(fields: [nutrientGapId], references: [id])
+  version       Int         @default(0)
+  rank          Int
+  why           String
+  pairWith      String?     @map("pair_with")
+  conflictsWith String?     @map("conflicts_with")
+  excluded      Boolean     @default(false)
+  excludeReason String?     @map("exclude_reason")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([cycleId, version])
+  @@map("focus_set_items")
+}
+
+model ApprovedList {
+  id            String             @id @default(uuid()) @db.Uuid
+  patientId     String             @map("patient_id") @db.Uuid
+  patient       Patient            @relation(fields: [patientId], references: [id])
+  nutrientGapId String             @map("nutrient_gap_id") @db.Uuid
+  nutrientGap   NutrientGap        @relation(fields: [nutrientGapId], references: [id])
+  status        ApprovedListStatus @default(draft)
+  ratifiedBy    String?            @map("ratified_by")
+  ratifiedAt    DateTime?          @map("ratified_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  items ApprovedListItem[]
+
+  @@unique([patientId, nutrientGapId])
+  @@map("approved_lists")
+}
+
+model ApprovedListItem {
+  id                 String       @id @default(uuid()) @db.Uuid
+  approvedListId     String       @map("approved_list_id") @db.Uuid
+  approvedList       ApprovedList @relation(fields: [approvedListId], references: [id])
+  foodName           String       @map("food_name")
+  fdcId              String?      @map("fdc_id")
+  servingDescription String       @map("serving_description")
+  prep               String       @default("")
+  amountPerServing   Decimal      @map("amount_per_serving") @db.Decimal(10, 4)
+  unit               String
+  icon               String       @default("ph-bowl-food")
+  status             ItemStatus   @default(approved)
+  note               String       @default("")
+  edited             Boolean      @default(false)
+  rank               Int          @default(0)
+  removedAt          DateTime?    @map("removed_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+
+  patientChoices PatientChoice[]
+
+  @@index([approvedListId])
+  @@map("approved_list_items")
+}
+
+model PatientChoice {
+  id                 String           @id @default(uuid()) @db.Uuid
+  patientId          String           @map("patient_id") @db.Uuid
+  patient            Patient          @relation(fields: [patientId], references: [id])
+  cycleId            String           @map("cycle_id") @db.Uuid
+  cycle              Cycle            @relation(fields: [cycleId], references: [id])
+  nutrientGapId      String           @map("nutrient_gap_id") @db.Uuid
+  nutrientGap        NutrientGap      @relation(fields: [nutrientGapId], references: [id])
+  approvedListItemId String           @map("approved_list_item_id") @db.Uuid
+  approvedListItem   ApprovedListItem @relation(fields: [approvedListItemId], references: [id])
+  foodName           String           @map("food_name")
+  servingsText       String           @map("servings_text")
+  gapRemaining       Decimal          @map("gap_remaining") @db.Decimal(10, 4)
+  gapUnit            String           @map("gap_unit")
+  gapClosedPct       Decimal          @map("gap_closed_pct") @db.Decimal(5, 2)
+  stillApproved      Boolean          @map("still_approved")
+  chosenAt           DateTime         @default(now()) @map("chosen_at")
+  supersededAt       DateTime?        @map("superseded_at")
+
+  @@index([patientId, cycleId, nutrientGapId])
+  @@map("patient_choices")
+}

@@ -4,37 +4,71 @@ import { useEffect, useRef, useState } from "react";
 import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import BodyClass from "@/components/BodyClass";
-import { getApprovedList, chooseFood } from "@/lib/api";
+import { computeChoice } from "@/lib/recompute";
 import type { ApprovedListItem, ChoiceResult } from "@/lib/types";
 
+const GAP_REMAINING = 9; // mg of iron left today (9 of 18 logged)
+
 export default function SwapPage() {
+  const [patientId, setPatientId] = useState<string | null>(null);
   const [items, setItems] = useState<ApprovedListItem[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [result, setResult] = useState<ChoiceResult | null>(null);
   const [loading, setLoading] = useState(true);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // load the ratified menu (patient sees approved items only)
+  // shared recompute (same code the server persists with) — instant, no round-trip
+  function preview(item: ApprovedListItem): ChoiceResult {
+    return computeChoice({
+      foodName: item.foodName,
+      prep: item.prep,
+      servingDescription: item.servingDescription,
+      amountPerServing: item.amountPerServing,
+      approved: item.status === "approved",
+      gapRemaining: GAP_REMAINING,
+      gapUnit: "mg",
+    });
+  }
+
   useEffect(() => {
     let live = true;
-    getApprovedList("iron").then(async (list) => {
-      if (!live) return;
-      const approved = list.items.filter((i) => i.status === "approved");
-      setItems(approved);
-      setLoading(false);
-      if (approved[0]) {
-        setSelected(approved[0].id);
-        setResult(await chooseFood(approved[0]));
+    (async () => {
+      try {
+        const patients = await fetch("/api/patients").then((r) => r.json());
+        const id: string | undefined = patients?.[0]?.id;
+        if (!id || !live) return setLoading(false);
+        setPatientId(id);
+        const list = await fetch(`/api/patients/${id}/approved-lists/iron`).then((r) => r.json());
+        if (!live) return;
+        const approved: ApprovedListItem[] = (list?.items ?? []).filter(
+          (i: ApprovedListItem) => i.status === "approved",
+        );
+        setItems(approved);
+        setLoading(false);
+        if (approved[0]) {
+          setSelected(approved[0].id);
+          setResult(preview(approved[0]));
+        }
+      } catch {
+        if (live) setLoading(false);
       }
-    });
+    })();
     return () => {
       live = false;
     };
   }, []);
 
-  async function pick(item: ApprovedListItem) {
+  function pick(item: ApprovedListItem) {
     setSelected(item.id);
-    setResult(await chooseFood(item));
+    setResult(preview(item)); // instant UI
+    if (patientId) {
+      // persist the choice; the server recomputes + records it (insert-only history)
+      fetch(`/api/patients/${patientId}/choices`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ approvedListItemId: item.id, gapRemaining: GAP_REMAINING }),
+      }).catch(() => {});
+    }
   }
 
   function onKey(e: React.KeyboardEvent, index: number) {

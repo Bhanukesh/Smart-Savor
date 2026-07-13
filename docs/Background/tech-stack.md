@@ -9,8 +9,8 @@
 | Layer | Choice | Why |
 |---|---|---|
 | Frontend | **Next.js (React) + TypeScript + Tailwind** | Two views (dietitian command center + patient app) from one app; fast to build the cycle/dashboard UIs |
-| Backend / API | **Python + FastAPI** | Same language as the agent layer and WeasyPrint; clean async API |
-| Agent runtime | **Claude Agent SDK (Python)** | Runs the agents on-demand + invokes Skills *(autonomous background re-planning / Agent 6 is post-MVP)* |
+| Backend / API | **Node.js + TypeScript (Fastify + Prisma)** | Chosen in Phase 2 (over Python/.NET): one language across FE + BE + agents, native Claude Agent SDK + MCP TS SDK. See `er-design.md` + `backend/README.md` |
+| Agent runtime | **Claude Agent SDK (TypeScript)** | Runs the agents on-demand + invokes Skills. The existing Python MCP + Agent 1 are being ported to TS *(Agent 6 is post-MVP)* |
 | LLM | **Claude — Opus 4.8 / Sonnet 4.6 / Haiku 4.5** | Tiered by task (see §3) |
 | Sources | **3 MCP servers (2 off-the-shelf + 1 custom)** | Bar 3 requirement |
 | Datastore | **PostgreSQL (+ pgvector)** | Relational patient/cycle data + semantic match for the Food Matcher |
@@ -30,10 +30,11 @@
 - Two route groups from one codebase: `/rx/*` (dietitian command center — D1–D6) and `/me/*` (patient — P1–P4). Shared design tokens, different density/navigation.
 
 ## 2. Backend / API
-- **Python 3.12 + FastAPI** — REST/JSON API for the frontend; async endpoints for ingestion and planning.
-- **SQLAlchemy + Alembic** — ORM + migrations.
-- **Pydantic** — request/response + structured LLM I/O validation.
-- **Celery / RQ + Redis** (or APScheduler for the capstone) — the **background re-planner**: weekly cron + event-triggered re-plans (new lab, new receipt, budget edit, disliked item, price refresh).
+*Decided in Phase 2: Node/TypeScript over Python and .NET/C#. Rationale: one language across the whole stack (the frontend is already TS), first-class **Claude Agent SDK (TS)** + **MCP TS SDK**, and shared types with the FE (`frontend/lib/types.ts`). The existing Python custom MCP + Agent 1 are being ported to TS. See `backend/README.md`.*
+- **Node.js + TypeScript + Fastify** — REST/JSON API for the frontend; async by default.
+- **Prisma + PostgreSQL** — schema + migrations, mapped directly from `er-design.md`.
+- **Zod** — request/response + structured LLM I/O validation.
+- **BullMQ + Redis** (or a simple cron for the capstone) — the **background re-planner**: weekly cron + event-triggered re-plans (new lab, new receipt, budget edit, disliked item, price refresh).
 
 ## 3. Agent Layer (Claude Agent SDK)
 - **Claude Agent SDK (Python)** runs the headless prod agent that ingests changes and regenerates cycle plans.

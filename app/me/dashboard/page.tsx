@@ -2,10 +2,10 @@ import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import BodyClass from "@/components/BodyClass";
-import { getDashboard } from "@/lib/api";
+import { getDashboard } from "@/lib/data";
 
 export default async function DashboardPage() {
-  const gauges = await getDashboard();
+  const gauges = getDashboard();
 
   return (
     <>

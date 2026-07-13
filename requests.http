@@ -1,0 +1,32 @@
+### Smart Savor API — click "Send Request" above each block.
+### Needs the VS Code "REST Client" extension (humao.rest-client). App must be running
+### (npm run dev, http://localhost:3000). Blocks 3–6 auto-chain off #2.
+
+@base = http://localhost:3000/api
+
+### 1 · Health
+GET {{base}}/health
+
+### 2 · Caseload (list patients) — copy an id, or let #3+ auto-use the first
+# @name patients
+GET {{base}}/patients
+
+### 3 · Patient snapshot
+@sam = {{patients.response.body.$[0].id}}
+GET {{base}}/patients/{{sam}}
+
+### 4 · Ranked focus set (Dietitian D1.5)
+GET {{base}}/patients/{{sam}}/focus-set
+
+### 5 · Ratified iron menu (Dietitian D2/D3)
+# @name ironMenu
+GET {{base}}/patients/{{sam}}/approved-lists/iron
+
+### 6 · THE USP — choose a food → recomputed amount (expect "~1½ cups of lentils")
+@item = {{ironMenu.response.body.$.items[0].id}}
+POST {{base}}/patients/{{sam}}/choices
+Content-Type: application/json
+
+{
+  "approvedListItemId": "{{item}}"
+}

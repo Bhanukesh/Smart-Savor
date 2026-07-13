@@ -1,7 +1,10 @@
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
-import { getPatient, getApprovedList } from "@/lib/api";
+import { getDemoPatient, getApprovedList } from "@/lib/data";
+import { notFound } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 const CHIP: Record<string, string> = { approved: "green", flagged: "amber", excluded: "red" };
 const CHIP_LABEL: Record<string, string> = { approved: "Approved", flagged: "Flagged", excluded: "Excluded" };
@@ -12,7 +15,10 @@ const RANK: Record<string, { cls: string; icon?: string; txt?: string }> = {
 };
 
 export default async function RatifyPage() {
-  const [patient, list] = await Promise.all([getPatient(), getApprovedList("iron")]);
+  const patient = await getDemoPatient();
+  if (!patient) notFound();
+  const list = await getApprovedList(patient.id, "iron");
+  if (!list) notFound();
   const count = list.items.length;
 
   return (

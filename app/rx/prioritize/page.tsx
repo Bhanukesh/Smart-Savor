@@ -1,10 +1,15 @@
 import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import ConfirmFocusSet from "@/components/ConfirmFocusSet";
-import { getPatient, getFocusSet } from "@/lib/api";
+import { getDemoPatient, getFocusSet } from "@/lib/data";
+import { notFound } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default async function PrioritizePage() {
-  const [patient, focus] = await Promise.all([getPatient(), getFocusSet()]);
+  const patient = await getDemoPatient();
+  if (!patient) notFound();
+  const focus = await getFocusSet(patient.id);
 
   return (
     <>
