@@ -34,7 +34,6 @@ export default function ConfirmFocusSet({
         >
           Confirm focus set <i className="ph-bold ph-arrow-right" />
         </button>
-        <button className="btn">Override ranking</button>
       </div>
       {published && (
         <p className="note safe">
@@ -42,7 +41,7 @@ export default function ConfirmFocusSet({
             <i className="ph ph-check-circle" /> Published:
           </strong>{" "}
           Focus set confirmed and sent to swap-menu generation.{" "}
-          <Link href="/rx/ratify" style={{ textDecoration: "underline" }}>
+          <Link href={`/rx/ratify?patient=${patientId}`} style={{ textDecoration: "underline" }}>
             Continue to Ratify (D2/D3) →
           </Link>
         </p>

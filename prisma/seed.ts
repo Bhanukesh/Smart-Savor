@@ -104,6 +104,32 @@ async function main() {
     ],
   });
 
+  const magList = await prisma.approvedList.create({
+    data: { patientId: sam.id, nutrientGapId: mag.id, status: "ratified", ratifiedBy: "Maria, RD", ratifiedAt: new Date() },
+  });
+  await prisma.approvedListItem.createMany({
+    data: [
+      { approvedListId: magList.id, rank: 1, foodName: "Black beans", fdcId: "175199", servingDescription: "1 cup", prep: "cooked", amountPerServing: 120, unit: "mg", icon: "ph-circles-three", status: "approved", note: "Fiber-forward — fits Type 2 glycemic goals; closes the full 120 mg gap in one serving." },
+      { approvedListId: magList.id, rank: 2, foodName: "Almonds", fdcId: "170567", servingDescription: "1 oz (~23 almonds)", prep: "unsalted", amountPerServing: 80, unit: "mg", icon: "ph-plant", status: "approved", note: "Adjunct for BP management (138/88) — magnesium supports vascular tone." },
+      { approvedListId: magList.id, rank: 3, foodName: "Avocado", fdcId: "171705", servingDescription: "1 cup", prep: "", amountPerServing: 58, unit: "mg", icon: "ph-drop", status: "approved", note: "Heart-healthy monounsaturated fat — supports cardiac history." },
+      { approvedListId: magList.id, rank: 4, foodName: "Brown rice", fdcId: "169704", servingDescription: "1 cup", prep: "cooked", amountPerServing: 86, unit: "mg", icon: "ph-bowl-food", status: "approved", note: "Swap for the white rice already in Sam's habit model — minimal disruption." },
+      { approvedListId: magList.id, rank: 5, foodName: "Dark chocolate, 85% cacao", servingDescription: "1 oz", prep: "", amountPerServing: 65, unit: "mg", icon: "ph-cube", status: "flagged", note: "~3 g added sugar per serving — flagged for Type 2 review; suggest unsweetened cacao nibs instead." },
+    ],
+  });
+
+  const vitcList = await prisma.approvedList.create({
+    data: { patientId: sam.id, nutrientGapId: vitc.id, status: "ratified", ratifiedBy: "Maria, RD", ratifiedAt: new Date() },
+  });
+  await prisma.approvedListItem.createMany({
+    data: [
+      { approvedListId: vitcList.id, rank: 1, foodName: "Bell pepper", fdcId: "170108", servingDescription: "1 medium", prep: "raw", amountPerServing: 95, unit: "mg", icon: "ph-orange-slice", status: "approved", note: "Also boosts iron absorption when paired with an iron source — priority #1 synergy." },
+      { approvedListId: vitcList.id, rank: 2, foodName: "Orange", fdcId: "169097", servingDescription: "1 medium", prep: "", amountPerServing: 70, unit: "mg", icon: "ph-orange-slice", status: "approved", note: "Easy grab-and-go — fits current habits (bananas already in rotation)." },
+      { approvedListId: vitcList.id, rank: 3, foodName: "Broccoli", fdcId: "170379", servingDescription: "1 cup", prep: "cooked", amountPerServing: 81, unit: "mg", icon: "ph-leaf", status: "approved", note: "Also fiber and modest magnesium — supports Type 2 + BP goals." },
+      { approvedListId: vitcList.id, rank: 4, foodName: "Strawberries", fdcId: "167762", servingDescription: "1 cup", prep: "", amountPerServing: 89, unit: "mg", icon: "ph-orange-slice", status: "approved", note: "Low glycemic index fruit — safe for Type 2." },
+      { approvedListId: vitcList.id, rank: 5, foodName: "Kiwi", fdcId: "168153", servingDescription: "2 medium", prep: "", amountPerServing: 128, unit: "mg", icon: "ph-circles-three", status: "flagged", note: "High vitamin C, but check cost/availability with Sam before approving." },
+    ],
+  });
+
   console.log(`Seeded practice=${practice.id} dietitian=${maria.id} patient=${sam.id}`);
 }
 

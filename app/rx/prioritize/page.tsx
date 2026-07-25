@@ -1,13 +1,19 @@
 import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import ConfirmFocusSet from "@/components/ConfirmFocusSet";
-import { getDemoPatient, getFocusSet, getCycleConfirmedAt } from "@/lib/data";
+import FocusSetBoard from "@/components/FocusSetBoard";
+import { resolvePatient, getFocusSet, getCycleConfirmedAt } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function PrioritizePage() {
-  const patient = await getDemoPatient();
+export default async function PrioritizePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ patient?: string }>;
+}) {
+  const { patient: patientId } = await searchParams;
+  const patient = await resolvePatient(patientId);
   if (!patient) notFound();
   const focus = await getFocusSet(patient.id);
   const confirmedAt = await getCycleConfirmedAt(patient.id);
@@ -59,33 +65,7 @@ export default async function PrioritizePage() {
           <h2>
             <i className="ph ph-list-numbers ic-primary" /> Ranked focus set
           </h2>
-          {focus.map((f) => (
-            <div className="row" key={f.gap.id}>
-              <div className={`rank${f.excluded ? " warn" : ""}`}>{f.excluded ? "!" : f.rank}</div>
-              <div className="grow">
-                <div className="title">
-                  {f.gap.label}
-                  {f.rank === 1 && !f.excluded && <span className="chip blue">Priority</span>}
-                  {f.pairWith && f.rank !== 1 && !f.excluded && (
-                    <span className="chip blue">Pairs with #1</span>
-                  )}
-                  {f.excluded && <span className="chip amber">Flagged — not food-first</span>}
-                </div>
-                <div className="meta">
-                  Target {f.gap.targetValue} {f.gap.unit}/day · current {f.gap.currentValue} {f.gap.unit} ·
-                  gap {f.gap.targetValue - f.gap.currentValue} {f.gap.unit}. Reason: {f.why}
-                  {f.pairWith && (
-                    <>
-                      <br />
-                      Pairs: {f.pairWith}
-                      {f.conflictsWith && <> · Conflicts: {f.conflictsWith}</>}
-                    </>
-                  )}
-                  {f.excludeReason && <> {f.excludeReason}</>}
-                </div>
-              </div>
-            </div>
-          ))}
+          <FocusSetBoard patientId={patient.id} initialFocus={focus} />
           <ConfirmFocusSet patientId={patient.id} initialConfirmedAt={confirmedAt} />
         </div>
 
