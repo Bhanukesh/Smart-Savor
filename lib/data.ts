@@ -66,6 +66,12 @@ export async function getDemoPatient(): Promise<Patient | null> {
   return first ? getPatient(first.id) : null;
 }
 
+/** Resolve the patient a /rx page should show: an explicit ?patient=<id>, or the demo patient
+ * as a fallback so existing links (nav, homepage) keep working without a query param. */
+export async function resolvePatient(patientId?: string): Promise<Patient | null> {
+  return patientId ? getPatient(patientId) : getDemoPatient();
+}
+
 export async function getFocusSet(patientId: string): Promise<FocusItem[]> {
   const cycle = await prisma.cycle.findFirst({ where: { patientId }, orderBy: { startDate: "desc" } });
   if (!cycle) return [];
@@ -83,6 +89,26 @@ export async function getFocusSet(patientId: string): Promise<FocusItem[]> {
     excluded: f.excluded || undefined,
     excludeReason: f.excludeReason ?? undefined,
   }));
+}
+
+/** Dietitian's "Override ranking" — drag-and-drop reorder of the active (non-excluded) focus
+ * items. `orderedNutrientGapIds` is the new top-to-bottom order; ranks are reassigned 1..N to
+ * match. Excluded items aren't part of the ranking and keep whatever rank they had. */
+export async function reorderFocusSet(
+  patientId: string,
+  orderedNutrientGapIds: string[],
+): Promise<FocusItem[] | null> {
+  const cycle = await prisma.cycle.findFirst({ where: { patientId }, orderBy: { startDate: "desc" } });
+  if (!cycle) return null;
+  await Promise.all(
+    orderedNutrientGapIds.map((nutrientGapId, i) =>
+      prisma.focusSetItem.updateMany({
+        where: { cycleId: cycle.id, version: cycle.focusSetVersion, nutrientGapId },
+        data: { rank: i + 1 },
+      }),
+    ),
+  );
+  return getFocusSet(patientId);
 }
 
 function serializeItem(it: {
@@ -243,6 +269,86 @@ export async function generateCandidatesFromGrocery(
       }),
     });
   }
+
+  return getApprovedList(patientId, nutrient);
+}
+
+/** Ratify screen's search bar — free-text search across all 8,986 grocery_items by product
+ * name or brand, independent of any nutrient (the dietitian is looking for a specific food). */
+export async function searchGroceryItems(query: string, limit = 10) {
+  const q = query.trim();
+  if (!q) return [];
+  const rows = await prisma.groceryItem.findMany({
+    where: {
+      OR: [
+        { productName: { contains: q, mode: "insensitive" } },
+        { brand: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    take: limit,
+    orderBy: { productName: "asc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    productName: r.productName,
+    brand: r.brand ?? undefined,
+    department: r.department ?? undefined,
+    priceUsd: r.priceUsd !== null ? num(r.priceUsd) : undefined,
+  }));
+}
+
+/** Add one specific, dietitian-picked grocery item (from the search bar) to an approved list.
+ * Computes its per-serving amount for the list's nutrient same as generateCandidatesFromGrocery;
+ * if the item has no data for that nutrient, adds it anyway with amount 0 and a clear note —
+ * search is nutrient-agnostic by design, so this is expected for some picks. */
+export async function addGroceryItemToApprovedList(
+  patientId: string,
+  nutrient: string,
+  groceryItemId: string,
+): Promise<ApprovedList | null> {
+  const gap = await prisma.nutrientGap.findUnique({
+    where: { patientId_nutrient: { patientId, nutrient } },
+  });
+  if (!gap) return null;
+
+  const list = await prisma.approvedList.findUnique({
+    where: { patientId_nutrientGapId: { patientId, nutrientGapId: gap.id } },
+  });
+  if (!list) return null;
+
+  const r = await prisma.groceryItem.findUnique({ where: { id: groceryItemId } });
+  if (!r) return null;
+
+  const col = NUTRIENT_COLUMN[nutrient as NutrientKey];
+  const per100g = col ? num((r as unknown as Record<string, unknown>)[col.field] ?? 0) : 0;
+  const servingG = r.servingSizeG ? num(r.servingSizeG) : 100;
+  const amount = Math.round(((per100g * servingG) / 100) * 100) / 100;
+
+  const existing = await prisma.approvedListItem.findMany({
+    where: { approvedListId: list.id },
+    select: { rank: true },
+  });
+  const maxRank = existing.reduce((m, e) => Math.max(m, e.rank), 0);
+  const name = r.productName.length > 80 ? r.productName.slice(0, 77) + "…" : r.productName;
+
+  await prisma.approvedListItem.create({
+    data: {
+      approvedListId: list.id,
+      rank: maxRank + 1,
+      foodName: name,
+      fdcId: r.fdcId,
+      servingDescription: r.householdServing || `${servingG}g`,
+      prep: "",
+      amountPerServing: amount,
+      unit: gap.unit,
+      icon: "ph-bowl-food",
+      status: "flagged",
+      note:
+        amount > 0
+          ? `Manually added by dietitian${r.priceUsd ? ` · $${num(r.priceUsd).toFixed(2)}` : ""} — pending review.`
+          : `Manually added — no ${nutrient} data on file for this item; verify the amount before approving.`,
+    },
+  });
 
   return getApprovedList(patientId, nutrient);
 }

@@ -1,13 +1,17 @@
 import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import RatifyBoard from "@/components/RatifyBoard";
-import { getDemoPatient, getApprovedList } from "@/lib/data";
+import { resolvePatient, getApprovedList } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function RatifyPage() {
-  const patient = await getDemoPatient();
+export default async function RatifyPage({
+  searchParams,
+}: {
+  searchParams: { patient?: string };
+}) {
+  const patient = await resolvePatient(searchParams.patient);
   if (!patient) notFound();
   const list = await getApprovedList(patient.id, "iron");
   if (!list) notFound();

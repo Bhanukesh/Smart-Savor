@@ -1,8 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ApprovedList, ApprovedListItem } from "@/lib/types";
+
+type SearchResult = {
+  id: string;
+  productName: string;
+  brand?: string;
+  department?: string;
+  priceUsd?: number;
+};
 
 const CHIP: Record<string, string> = { approved: "green", flagged: "amber", excluded: "red" };
 const CHIP_LABEL: Record<string, string> = { approved: "Approved", flagged: "Flagged", excluded: "Excluded" };
@@ -30,6 +38,50 @@ export default function RatifyBoard({
   const [generating, setGenerating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftNote, setDraftNote] = useState("");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [addingId, setAddingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/grocery-items/search?q=${encodeURIComponent(q)}`);
+        if (res.ok) {
+          const data: { results: SearchResult[] } = await res.json();
+          setResults(data.results);
+        }
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  async function addFromSearch(item: SearchResult) {
+    setAddingId(item.id);
+    try {
+      const res = await fetch(`/api/patients/${patientId}/approved-lists/${nutrient}/items`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ groceryItemId: item.id }),
+      });
+      if (!res.ok) return;
+      const list: ApprovedList = await res.json();
+      setItems(list.items);
+      setQuery("");
+      setResults([]);
+    } finally {
+      setAddingId(null);
+    }
+  }
 
   async function act(itemId: string, action: "approve" | "restore" | "remove" | "edit", note?: string) {
     setBusyId(itemId);
@@ -86,6 +138,55 @@ export default function RatifyBoard({
       <h2>
         <i className="ph ph-check-square ic-primary" /> {nutrientLabel} swap menu — {items.length} candidates
       </h2>
+
+      <div style={{ position: "relative", marginBottom: 16 }}>
+        <input
+          type="text"
+          className="field"
+          placeholder="Search all foods to add to this menu…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {query.trim() && (
+          <div
+            className="card"
+            style={{
+              position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 10,
+              maxHeight: 280, overflowY: "auto", padding: 8,
+            }}
+          >
+            {searching ? (
+              <p className="sub" style={{ margin: "6px 8px" }}>Searching…</p>
+            ) : results.length === 0 ? (
+              <p className="sub" style={{ margin: "6px 8px" }}>No foods match &quot;{query}&quot;.</p>
+            ) : (
+              results.map((r) => (
+                <div
+                  key={r.id}
+                  className="btn-row"
+                  style={{ justifyContent: "space-between", padding: "6px 8px" }}
+                >
+                  <span style={{ fontSize: 13.5 }}>
+                    {r.productName}
+                    {r.brand && <span style={{ color: "var(--muted-foreground)" }}> · {r.brand}</span>}
+                    {r.priceUsd !== undefined && (
+                      <span style={{ color: "var(--muted-foreground)" }}> · ${r.priceUsd.toFixed(2)}</span>
+                    )}
+                  </span>
+                  <button
+                    className="btn sm primary"
+                    disabled={addingId === r.id}
+                    onClick={() => addFromSearch(r)}
+                  >
+                    {addingId === r.id ? "Adding…" : "Add"}
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
       {items.map((it) => {
         const r = RANK[it.status];
         const busy = busyId === it.id;

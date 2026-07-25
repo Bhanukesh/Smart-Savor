@@ -17,7 +17,7 @@ export default function Home() {
         </p>
 
         <div className="grid two" style={{ marginTop: 8 }}>
-          <Link href="/rx/prioritize" className="card">
+          <Link href="/rx" className="card">
             <p className="stage-badge">
               <i className="ph ph-stethoscope" /> Dietitian console
             </p>
