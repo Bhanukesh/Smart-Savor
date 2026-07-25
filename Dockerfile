@@ -7,14 +7,27 @@
 # ---- build stage ----
 FROM node:22-alpine AS build
 WORKDIR /src
+# node:22-alpine ships libssl.so.3 but no `openssl` binary — without it, Prisma
+# can't detect the actual OpenSSL version, silently defaults to guessing
+# openssl-1.1.x, and generates a query engine that can't find libssl.so.1.1
+# (it doesn't exist, only .so.3 does). Installing openssl lets Prisma detect
+# correctly and pick the matching engine.
+RUN apk add --no-cache openssl
+# --ignore-scripts: this project's package.json runs `prisma generate` as a
+# postinstall hook, which would otherwise fire here — before COPY . . brings
+# in prisma/schema.prisma — and fail with "schema not found". Generation
+# still happens explicitly below, once the schema is actually present.
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 COPY . .
 RUN npx prisma generate && npm run build
 
 # ---- runtime stage ----
 FROM node:22-alpine
 WORKDIR /app
+# Same reason as the build stage: the query engine binary needs the real
+# libssl available at runtime too, not just at generate time.
+RUN apk add --no-cache openssl
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 
 # Next standalone output + static assets
