@@ -45,4 +45,7 @@ COPY --from=build /src/node_modules/prisma ./node_modules/prisma
 COPY --from=build /src/node_modules/@prisma ./node_modules/@prisma
 
 EXPOSE 3000
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node server.js"]
+# TEMPORARY for exactly one deploy: seed the empty production DB, then this
+# `&& node prisma/seed-once.cjs` clause gets removed in the very next commit.
+# Safe only because the DB is currently empty — see that commit's message.
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node prisma/seed-once.cjs && node server.js"]
