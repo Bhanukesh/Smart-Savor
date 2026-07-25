@@ -68,6 +68,10 @@ model Patient {
   name         String
   age          Int?
   conditions   String[] @default([])
+  // Dietary preferences (ER design 3.3): food-sourcing agent reads these as a simple list.
+  restrictions String[] @default([]) // e.g. ["vegetarian"]
+  dislikes     String[] @default([]) // e.g. ["mushrooms"]
+  weeklyBudgetUsd Decimal? @map("weekly_budget_usd") @db.Decimal(8, 2)
   bmi          Decimal? @db.Decimal(5, 2)
   bpSystolic   Int?     @map("bp_systolic")
   bpDiastolic  Int?     @map("bp_diastolic")
@@ -119,6 +123,8 @@ model Cycle {
   retestDueDate    DateTime @map("retest_due_date") @db.Date
   status           String   @default("active")
   focusSetVersion  Int      @default(0) @map("focus_set_version")
+  // Set when the dietitian confirms this cycle's ranked focus set (D1.5 gesture).
+  focusSetConfirmedAt DateTime? @map("focus_set_confirmed_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -211,4 +217,63 @@ model PatientChoice {
 
   @@index([patientId, cycleId, nutrientGapId])
   @@map("patient_choices")
+}
+
+// grocery_items — the Walmart x USDA price/nutrient join (ER design 3.20), 8,986 rows,
+// ingested from docs/Dataset/Grocery_Nutrition.csv via `npm run db:ingest-grocery`.
+//
+// Deviations from the ER doc, driven by the real data (not the spec):
+// - `fdcId` is NOT unique — 1,297 rows in the source share an fdc_id (multiple retail
+//   products matched to the same USDA reference food). Indexed, not a unique key.
+// - Nutrient columns use wider precision than the doc's NUMERIC(8,4) — some source rows
+//   (e.g. sodium_mg, potassium_mg) have per-100g values in the hundreds of thousands,
+//   which would overflow (8,4). Widened to avoid a repeat ingestion failure.
+// - Includes sat_fat_g/mono_fat_g/poly_fat_g/trans_fat_g/product_url — present in the CSV
+//   but not listed in the ER doc's column spec.
+model GroceryItem {
+  id                 String    @id @default(uuid()) @db.Uuid
+  department         String?
+  category           String?
+  productName        String    @map("product_name")
+  brand              String?
+  priceUsd           Decimal?  @map("price_usd") @db.Decimal(10, 4)
+  packageSize        String?   @map("package_size")
+  pricePer100gUsd    Decimal?  @map("price_per_100g_usd") @db.Decimal(10, 6)
+  productUrl         String?   @map("product_url") @db.Text
+  fdcId              String    @map("fdc_id")
+  usdaDescription    String?   @map("usda_description")
+  usdaSource         String?   @map("usda_source")
+  matchConfidence    String?   @map("match_confidence")
+  servingSizeG       Decimal?  @map("serving_size_g") @db.Decimal(10, 3)
+  householdServing   String?   @map("household_serving")
+  caloriesKcal       Decimal?  @map("calories_kcal") @db.Decimal(10, 2)
+  proteinG           Decimal?  @map("protein_g") @db.Decimal(10, 4)
+  totalFatG          Decimal?  @map("total_fat_g") @db.Decimal(10, 4)
+  satFatG            Decimal?  @map("sat_fat_g") @db.Decimal(10, 4)
+  monoFatG           Decimal?  @map("mono_fat_g") @db.Decimal(10, 4)
+  polyFatG           Decimal?  @map("poly_fat_g") @db.Decimal(10, 4)
+  transFatG          Decimal?  @map("trans_fat_g") @db.Decimal(10, 4)
+  cholesterolMg      Decimal?  @map("cholesterol_mg") @db.Decimal(10, 4)
+  carbsG             Decimal?  @map("carbs_g") @db.Decimal(10, 4)
+  fiberG             Decimal?  @map("fiber_g") @db.Decimal(10, 4)
+  sugarsG            Decimal?  @map("sugars_g") @db.Decimal(10, 4)
+  addedSugarsG       Decimal?  @map("added_sugars_g") @db.Decimal(10, 4)
+  sodiumMg           Decimal?  @map("sodium_mg") @db.Decimal(14, 4)
+  potassiumMg        Decimal?  @map("potassium_mg") @db.Decimal(14, 4)
+  calciumMg          Decimal?  @map("calcium_mg") @db.Decimal(12, 4)
+  ironMg             Decimal?  @map("iron_mg") @db.Decimal(12, 4)
+  magnesiumMg        Decimal?  @map("magnesium_mg") @db.Decimal(12, 4)
+  zincMg             Decimal?  @map("zinc_mg") @db.Decimal(12, 4)
+  vitaminCMg         Decimal?  @map("vitamin_c_mg") @db.Decimal(12, 4)
+  vitaminDIu         Decimal?  @map("vitamin_d_iu") @db.Decimal(12, 4)
+  vitaminARaeUg      Decimal?  @map("vitamin_a_rae_ug") @db.Decimal(12, 4)
+  vitaminB12Ug       Decimal?  @map("vitamin_b12_ug") @db.Decimal(12, 4)
+  folateDfeUg        Decimal?  @map("folate_dfe_ug") @db.Decimal(12, 4)
+  dataFlags          String?   @map("data_flags") @db.Text
+  priceSnapshotDate  DateTime  @default(now()) @map("price_snapshot_date") @db.Date
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  @@index([fdcId])
+  @@index([department])
+  @@map("grocery_items")
 }

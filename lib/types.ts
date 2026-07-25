@@ -20,6 +20,10 @@ export interface Patient {
   name: string;
   age: number;
   conditions: string[];
+  /** dietary preferences: restrictions (e.g. "vegetarian"), dislikes, weekly grocery budget */
+  restrictions: string[];
+  dislikes: string[];
+  weeklyBudgetUsd?: number;
   bmi: number;
   bpSystolic: number;
   bpDiastolic: number;

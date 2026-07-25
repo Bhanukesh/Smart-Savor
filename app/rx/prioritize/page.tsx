@@ -1,7 +1,7 @@
 import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import ConfirmFocusSet from "@/components/ConfirmFocusSet";
-import { getDemoPatient, getFocusSet } from "@/lib/data";
+import { getDemoPatient, getFocusSet, getCycleConfirmedAt } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +10,7 @@ export default async function PrioritizePage() {
   const patient = await getDemoPatient();
   if (!patient) notFound();
   const focus = await getFocusSet(patient.id);
+  const confirmedAt = await getCycleConfirmedAt(patient.id);
 
   return (
     <>
@@ -85,7 +86,7 @@ export default async function PrioritizePage() {
               </div>
             </div>
           ))}
-          <ConfirmFocusSet />
+          <ConfirmFocusSet patientId={patient.id} initialConfirmedAt={confirmedAt} />
         </div>
 
         <p className="note">

@@ -188,6 +188,14 @@ a.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color
 .btn[disabled]{opacity:.5;cursor:not-allowed}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 
+.field{
+  width:100%;font-family:var(--font-body);font-size:14px;color:var(--foreground);
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:9px 12px;box-shadow:var(--shadow-xs);transition:.18s;resize:vertical;
+}
+.field:hover{border-color:#b6c8ea}
+.field:focus-visible,.field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+
 /* ============ List rows ============ */
 .row{display:flex;align-items:center;gap:15px;padding:15px 0;border-bottom:1px solid var(--muted)}
 .row:last-child{border-bottom:none}

@@ -12,11 +12,12 @@ decide what's on your plate.*
 
 ## Quickstart
 ```bash
-npm install            # installs deps + generates the Prisma client
-npm run db:up          # start Postgres (Docker)
-npm run db:migrate     # apply the schema
-npm run db:seed        # seed patient Sam Rivera + Maria, RD
-npm run dev            # http://localhost:3000  (also brings Postgres up)
+npm install                   # installs deps + generates the Prisma client
+npm run db:up                 # start Postgres (Docker)
+npm run db:migrate            # apply the schema
+npm run db:seed               # seed patient Sam Rivera + Maria, RD
+./scripts/ingest-grocery.sh   # load the 8,986-row Walmart×USDA reference table
+npm run dev                   # http://localhost:3000  (also brings Postgres up)
 ```
 
 ## Routes
@@ -31,7 +32,10 @@ npm run dev            # http://localhost:3000  (also brings Postgres up)
 
 ## API (`/api/*`)
 `GET /api/health` · `GET /api/patients` · `GET /api/patients/:id` ·
-`GET /api/patients/:id/focus-set` · `GET /api/patients/:id/approved-lists/:nutrient` ·
+`GET /api/patients/:id/focus-set` · `POST /api/patients/:id/focus-set/confirm` ·
+`GET /api/patients/:id/approved-lists/:nutrient` ·
+`PATCH /api/patients/:id/approved-lists/:nutrient/items/:itemId` (approve/restore/remove/edit) ·
+`POST /api/patients/:id/approved-lists/:nutrient/generate` (source new candidates from `grocery_items`) ·
 `POST /api/patients/:id/choices` (the USP recompute). Try them via `requests.http`.
 
 ## Layout
@@ -39,7 +43,10 @@ npm run dev            # http://localhost:3000  (also brings Postgres up)
   (self-hosted Inter + Phosphor in `public/`, no CDN).
 - `lib/` — `data.ts` (server Prisma access, used by pages **and** routes), `db.ts` (Prisma
   singleton), `recompute.ts` (the USP math, shared by server + client), `types.ts` (contract).
-- `prisma/` — `schema.prisma` (mirrors `docs/Background/er-design.md`), migrations, `seed.ts`.
+- `prisma/` — `schema.prisma` (mirrors `docs/Background/er-design.md`, plus `grocery_items` — see
+  its in-schema comments for where the real dataset deviates from that doc), migrations, `seed.ts`.
+- `scripts/ingest-grocery.sh` — loads `docs/Dataset/Grocery_Nutrition.csv` (8,986 rows) into
+  `grocery_items` via `psql \copy`. Re-run anytime; it truncates first.
 
 Pages call `lib/data` directly (server components, no HTTP hop); the interactive swap page calls
 `/api` and shares `lib/recompute` for instant feedback.

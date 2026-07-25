@@ -89,7 +89,11 @@ _ANALYTE_ITEM = {
 HEALTH_REPORT_SCHEMA = {
     "name": "record_health_report",
     "description": "Record the structured contents of a patient health / lab report.",
-    "strict": True,
+    # strict:True's constrained-decoding grammar compiler rejects this schema as too large
+    # (confirmed live against the API — "compiled grammar is too large"). tool_choice already
+    # forces this exact tool, so strict mode buys nothing here beyond validation we already do
+    # in to_store_profile()/_field().
+    "strict": False,
     "input_schema": {
         "type": "object", "additionalProperties": False,
         "required": ["report_meta", "vitals", "analytes", "conditions", "overall_status"],

@@ -46,10 +46,11 @@ export default function Home() {
 
         <p className="note">
           <strong>
-            <i className="ph ph-flask ic-primary" /> Phase 1 build:
+            <i className="ph ph-flask ic-primary" /> Demo data:
           </strong>{" "}
-          this app runs on a seeded <b>mock API</b> (patient Sam Rivera). In Phase 3 the same screens
-          wire to the FastAPI backend + the 8,986-row Walmart×USDA dataset — no UI changes.
+          seeded with one patient (Sam Rivera). Every screen reads and writes real Postgres via
+          Prisma, and the ratify screen's &quot;Add candidate&quot; sources live from the
+          8,986-row Walmart×USDA reference table — no mocks.
         </p>
       </main>
     </>

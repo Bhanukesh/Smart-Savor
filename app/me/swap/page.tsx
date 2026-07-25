@@ -136,7 +136,7 @@ export default function SwapPage() {
                       <i className={`ph-fill ${it.icon} ic-primary`} /> {it.foodName}
                     </span>
                     <span className="fmeta">
-                      ~{it.amountPerServing} mg iron per {it.servingDescription.replace(/^1\s*/, "")}
+                      ~{it.amountPerServing} mg iron per {it.servingDescription.replace(/^1\s+/, "")}
                       {it.prep && ` (${it.prep})`}
                     </span>
                   </button>
