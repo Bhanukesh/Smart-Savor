@@ -10,13 +10,14 @@ const reorderBody = z.object({
 });
 
 // PATCH /api/patients/:id/focus-set/reorder — "Override ranking": drag-and-drop reorder
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  if (!isUuid(params.id)) return NextResponse.json({ error: "invalid patient id" }, { status: 400 });
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (!isUuid(id)) return NextResponse.json({ error: "invalid patient id" }, { status: 400 });
   const parsed = reorderBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const focus = await reorderFocusSet(params.id, parsed.data.nutrientGapIds);
+  const focus = await reorderFocusSet(id, parsed.data.nutrientGapIds);
   if (!focus) return NextResponse.json({ error: "patient/cycle not found" }, { status: 404 });
   return NextResponse.json(focus);
 }

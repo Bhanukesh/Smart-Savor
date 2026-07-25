@@ -9,9 +9,10 @@ export const dynamic = "force-dynamic";
 export default async function RatifyPage({
   searchParams,
 }: {
-  searchParams: { patient?: string };
+  searchParams: Promise<{ patient?: string }>;
 }) {
-  const patient = await resolvePatient(searchParams.patient);
+  const { patient: patientId } = await searchParams;
+  const patient = await resolvePatient(patientId);
   if (!patient) notFound();
   const list = await getApprovedList(patient.id, "iron");
   if (!list) notFound();

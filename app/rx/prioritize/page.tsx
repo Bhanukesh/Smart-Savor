@@ -10,9 +10,10 @@ export const dynamic = "force-dynamic";
 export default async function PrioritizePage({
   searchParams,
 }: {
-  searchParams: { patient?: string };
+  searchParams: Promise<{ patient?: string }>;
 }) {
-  const patient = await resolvePatient(searchParams.patient);
+  const { patient: patientId } = await searchParams;
+  const patient = await resolvePatient(patientId);
   if (!patient) notFound();
   const focus = await getFocusSet(patient.id);
   const confirmedAt = await getCycleConfirmedAt(patient.id);
