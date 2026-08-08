@@ -3,6 +3,7 @@ import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import PatientLocalNav from "@/components/PatientLocalNav";
 import InvitePanel from "@/components/InvitePanel";
+import DeletePatientButton from "@/components/DeletePatientButton";
 import { getPatient, getFocusSet, getCycleConfirmedAt, getApprovedList, getMessages } from "@/lib/data";
 import { notFound } from "next/navigation";
 
@@ -35,9 +36,12 @@ export default async function PatientOverviewPage({ params }: { params: Promise<
         <PatientLocalNav patientId={patient.id} patientName={patient.name} />
 
         <p className="eyebrow">Patient Profile</p>
-        <h1>
-          {patient.name}, {patient.age}
-        </h1>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <h1 style={{ margin: 0 }}>
+            {patient.name}, {patient.age}
+          </h1>
+          <DeletePatientButton patientId={patient.id} patientName={patient.name} />
+        </div>
 
         <div className="card">
           <h2>
