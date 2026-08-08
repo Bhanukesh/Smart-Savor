@@ -22,6 +22,9 @@ docs/USDA Datasets/
 # Local Claude Code config (the shared skill under .claude/skills/ IS committed).
 .claude/settings.local.json
 
+# Local file storage for uploaded receipts/photos (lib/storage.ts). MVP stand-in for S3.
+.data/
+
 # Raw Inter font download (20MB, 56 static files). The variable fonts actually used
 # live in docs/6 deliverables/prototype/fonts/.
 docs/Inter/

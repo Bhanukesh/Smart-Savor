@@ -1,0 +1,50 @@
+import { useState } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { router } from "expo-router";
+import Screen from "../../components/Screen";
+import Card from "../../components/Card";
+import TextField from "../../components/TextField";
+import Button from "../../components/Button";
+import Note from "../../components/Note";
+import { colors, spacing } from "../../lib/theme";
+
+export default function InviteCodeScreen() {
+  const [code, setCode] = useState("");
+
+  function submit() {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    router.push({ pathname: "/(auth)/signup", params: { code: trimmed } });
+  }
+
+  return (
+    <Screen>
+      <View style={styles.brand}>
+        <Text style={styles.brandText}>Smart Savor</Text>
+      </View>
+      <Card>
+        <Text style={styles.h1}>Enter your invite code</Text>
+        <Text style={styles.sub}>Your dietitian gave you a one-time code after your visit.</Text>
+        <TextField
+          label="Invite code"
+          placeholder="e.g. SAM-7XQK-2026"
+          value={code}
+          onChangeText={setCode}
+          autoCapitalize="characters"
+          autoFocus
+        />
+        <Button label="Continue" variant="primary" onPress={submit} disabled={!code.trim()} />
+      </Card>
+      <Note>
+        Private &amp; dietitian-backed — nothing reaches you without your dietitian&apos;s sign-off.
+      </Note>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  brand: { alignItems: "center", marginBottom: spacing.xl, marginTop: spacing.lg },
+  brandText: { fontSize: 22, fontWeight: "800", color: colors.primaryDeep },
+  h1: { fontSize: 20, fontWeight: "800", color: colors.foreground, marginBottom: 6 },
+  sub: { fontSize: 14, color: colors.mutedForeground, marginBottom: spacing.lg },
+});

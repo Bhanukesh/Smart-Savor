@@ -41,7 +41,7 @@ export default function ConfirmFocusSet({
             <i className="ph ph-check-circle" /> Published:
           </strong>{" "}
           Focus set confirmed and sent to swap-menu generation.{" "}
-          <Link href={`/rx/ratify?patient=${patientId}`} style={{ textDecoration: "underline" }}>
+          <Link href={`/patients/${patientId}/ratify`} style={{ textDecoration: "underline" }}>
             Continue to Ratify (D2/D3) →
           </Link>
         </p>

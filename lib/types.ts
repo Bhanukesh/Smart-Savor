@@ -30,6 +30,8 @@ export interface Patient {
   dietitianName: string;
   /** headline biomarkers for the snapshot card */
   labs: { name: string; value: string; flag?: "High" | "Low" | "Normal" }[];
+  enrolledAt?: string;
+  weeklyNudgeEnabled: boolean;
 }
 
 /** nutrient_gaps */
@@ -99,4 +101,125 @@ export interface DashboardGauge {
   unit: string;
   inRange: boolean;
   caption: string;
+}
+
+/** cycle_outcomes — one cycle's baseline->retest for one nutrient */
+export interface CycleOutcomeEntry {
+  cycleId: string;
+  cycleSlug?: string;
+  startDate: string;
+  baselineValue: number;
+  retestValue?: number;
+  delta?: number;
+  improved?: boolean;
+  outcomeStatus: FocusOutcomeStatus;
+}
+
+/** one nutrient's progress across every cycle the patient has been through */
+export interface NutrientHistory {
+  nutrient: NutrientKey;
+  label: string;
+  unit: string;
+  targetValue: number;
+  cycles: CycleOutcomeEntry[];
+}
+
+/** messages — one entry in a patient<->dietitian thread */
+export interface MessageEntry {
+  id: string;
+  senderRole: "patient" | "dietitian";
+  body: string;
+  createdAt: string;
+  readAt?: string;
+}
+
+/** dietitian inbox row — one patient's thread, most recent first */
+export interface MessageThreadSummary {
+  patientId: string;
+  patientName: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount: number;
+}
+
+/** weight_check_ins — a self-reported weight, framed as clinical monitoring, never a
+ * weight-loss target. */
+export interface WeightCheckInEntry {
+  id: string;
+  weightLb: number;
+  checkedInAt: string;
+  note?: string;
+}
+
+/** consumption_events — a Quick Log entry (photo/voice/text) */
+export interface ConsumptionEntry {
+  id: string;
+  foodName: string;
+  quantityServings: number;
+  consumedDate: string;
+  source: "photo" | "voice" | "text" | "nudge_confirmed" | "inferred";
+  flag: "ok" | "needs_review";
+}
+
+export type ReceiptParseStatus = "pending" | "parsed" | "failed" | "needs_review";
+
+/** receipts — list view */
+export interface ReceiptSummary {
+  id: string;
+  uploadDate: string;
+  retailer?: string;
+  parseStatus: ReceiptParseStatus;
+  itemCount: number;
+  pendingReviewCount: number;
+}
+
+/** receipt_line_items — one line, with the patient's review state */
+export interface ReceiptLineItemEntry {
+  id: string;
+  rawText: string;
+  matchedFood?: string;
+  quantity?: number;
+  priceUsd?: number;
+  matchFlag: "ok" | "needs_review" | "ambiguous" | "no_match";
+  /** null = awaiting review · true = confirmed mine · false = excluded (not mine) */
+  confirmed: boolean | null;
+}
+
+/** receipts + its line items — the review/confirm screen */
+export interface ReceiptDetail {
+  id: string;
+  uploadDate: string;
+  retailer?: string;
+  parseStatus: ReceiptParseStatus;
+  lineItems: ReceiptLineItemEntry[];
+}
+
+export type LabReportParseStatus = "pending" | "parsed" | "failed";
+
+/** lab_reports — list view */
+export interface LabReportSummary {
+  id: string;
+  uploadDate: string;
+  parseStatus: LabReportParseStatus;
+  findingCount: number;
+  pendingReviewCount: number;
+}
+
+/** lab_report_findings — one transcribed analyte, with the dietitian's review state */
+export interface LabReportFindingEntry {
+  id: string;
+  nutrient: NutrientKey;
+  label: string;
+  currentValue: number;
+  unit: string;
+  /** null = awaiting dietitian review · true = confirmed (materialized into a NutrientGap) · false = rejected */
+  confirmed: boolean | null;
+}
+
+/** lab_reports + its findings — the review/confirm screen */
+export interface LabReportDetail {
+  id: string;
+  uploadDate: string;
+  parseStatus: LabReportParseStatus;
+  findings: LabReportFindingEntry[];
 }

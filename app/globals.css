@@ -195,6 +195,19 @@ a.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color
 }
 .field:hover{border-color:#b6c8ea}
 .field:focus-visible,.field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.field-label{display:block;font-size:12.5px;font-weight:600;color:var(--muted-foreground);margin:0 0 6px}
+.field-row{margin-bottom:16px}
+.field-row:last-child{margin-bottom:0}
+
+.toggle{position:relative;display:inline-block;width:38px;height:22px;flex:none}
+.toggle input{opacity:0;width:0;height:0}
+.toggle .slider{position:absolute;inset:0;background:var(--muted);border-radius:999px;transition:.18s;cursor:pointer}
+.toggle .slider::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;box-shadow:var(--shadow-xs);transition:.18s}
+.toggle input:checked + .slider{background:var(--primary)}
+.toggle input:checked + .slider::before{transform:translateX(16px)}
+.toggle input:focus-visible + .slider{box-shadow:0 0 0 3px var(--ring)}
+
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ============ List rows ============ */
 .row{display:flex;align-items:center;gap:15px;padding:15px 0;border-bottom:1px solid var(--muted)}

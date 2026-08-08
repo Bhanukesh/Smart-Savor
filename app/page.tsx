@@ -1,57 +1,101 @@
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
+import PortalNav from "@/components/PortalNav";
+import AddPatientForm from "@/components/AddPatientForm";
+import { listPatients, getRosterKpis } from "@/lib/data";
+import type { RosterStatus } from "@/lib/data";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+const STATUS_LABEL: Record<RosterStatus, string> = {
+  needs_review: "Needs review",
+  awaiting_review: "Awaiting your review",
+  patient_message: "Patient message",
+  on_track: "On track",
+};
+
+const STATUS_CHIP: Record<RosterStatus, string> = {
+  needs_review: "red",
+  awaiting_review: "amber",
+  patient_message: "blue",
+  on_track: "green",
+};
+
+function statusLabel(status: RosterStatus, unreadMessageCount: number): string {
+  if (status === "patient_message") {
+    return `${unreadMessageCount} new message${unreadMessageCount === 1 ? "" : "s"}`;
+  }
+  return STATUS_LABEL[status];
+}
+
+export default async function CaseloadPage() {
+  const [patients, kpis] = await Promise.all([listPatients(), getRosterKpis()]);
+
   return (
     <>
-      <Topbar />
+      <Topbar
+        context="Dietitian console"
+        who={
+          <>
+            <i className="ph ph-stethoscope ic-primary" /> {patients[0]?.dietitianName ?? "Dietitian"}
+          </>
+        }
+      />
       <main className="wrap">
-        <p className="eyebrow">Adherence &amp; outcomes for dietitians</p>
+        <PortalNav />
+        <p className="eyebrow">Dietitian · Caseload</p>
         <h1>
-          Your doctor tells your body what it needs — <em>you</em> decide what&apos;s on your plate.
+          Your <em>patients</em>
         </h1>
         <p className="sub">
-          Smart Savor ingests a patient&apos;s real grocery history, lets them <b>choose</b> the
-          gap-closing swaps their dietitian has ratified, and proves the diet worked with periodic
-          labs. Pick a portal to walk the loop.
+          Everyone on your caseload, one place. Click a patient to see their full profile — focus
+          set, swap menu, and messages all live there.
         </p>
 
-        <div className="grid two" style={{ marginTop: 8 }}>
-          <Link href="/rx" className="card">
-            <p className="stage-badge">
-              <i className="ph ph-stethoscope" /> Dietitian console
-            </p>
-            <h2>
-              <i className="ph ph-list-numbers ic-primary" /> /rx — command center
-            </h2>
-            <p className="sub" style={{ margin: 0 }}>
-              Prioritize the cycle&apos;s focus set, then ratify the agent-drafted swap menu.
-              Nothing reaches the patient without your sign-off.
-            </p>
-          </Link>
+        <AddPatientForm />
 
-          <Link href="/me/swap" className="card featured">
-            <p className="stage-badge">
-              <i className="ph-fill ph-star" /> Patient app · the hero
-            </p>
-            <h2>
-              <i className="ph ph-swap ic-primary" /> /me — choose your food
-            </h2>
-            <p className="sub" style={{ margin: 0 }}>
-              Pick any food on the ratified menu; the agent recomputes the amount to still hit the
-              target. Same goal, a food you&apos;ll actually eat.
-            </p>
-          </Link>
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 24 }}>
+            {[
+              { label: "Active patients", value: kpis.totalPatients },
+              { label: "Needs your review", value: kpis.needsReviewCount },
+              { label: "Avg. adherence", value: `${kpis.avgAdherencePct}%` },
+              { label: "Unread messages", value: kpis.unreadMessageTotal },
+            ].map((stat) => (
+              <div key={stat.label} style={{ minWidth: 110 }}>
+                <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em" }}>{stat.value}</div>
+                <div className="sub" style={{ margin: 0, fontSize: 12.5 }}>{stat.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <p className="note">
-          <strong>
-            <i className="ph ph-flask ic-primary" /> Demo data:
-          </strong>{" "}
-          seeded with one patient (Sam Rivera). Every screen reads and writes real Postgres via
-          Prisma, and the ratify screen's &quot;Add candidate&quot; sources live from the
-          8,986-row Walmart×USDA reference table — no mocks.
-        </p>
+        <div className="card">
+          <h2>
+            <i className="ph ph-users-three ic-primary" /> {patients.length} patient{patients.length === 1 ? "" : "s"}
+          </h2>
+          {patients.length === 0 ? (
+            <p className="sub" style={{ margin: "8px 0" }}>No patients enrolled yet.</p>
+          ) : (
+            patients.map((p) => (
+              <Link className="row" key={p.id} href={`/patients/${p.id}`} style={{ display: "flex" }}>
+                <div className="grow">
+                  <div className="title">
+                    {p.name}, {p.age}
+                    <span className={`chip ${STATUS_CHIP[p.status]}`}>
+                      {statusLabel(p.status, p.unreadMessageCount)}
+                    </span>
+                  </div>
+                  <div className="meta">
+                    {p.conditions.length > 0 ? p.conditions.join(" · ") : "No conditions on file"} ·
+                    Dietitian: {p.dietitianName || "Unassigned"}
+                  </div>
+                </div>
+                <i className="ph ph-caret-right" style={{ color: "var(--muted-foreground)" }} />
+              </Link>
+            ))
+          )}
+        </div>
       </main>
     </>
   );
