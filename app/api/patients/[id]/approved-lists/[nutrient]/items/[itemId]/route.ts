@@ -8,6 +8,9 @@ export const dynamic = "force-dynamic";
 const patchBody = z.object({
   action: z.enum(["approve", "restore", "remove", "edit"]),
   note: z.string().optional(),
+  amountPerServing: z.number().positive().optional(),
+  unit: z.string().min(1).optional(),
+  servingDescription: z.string().min(1).optional(),
 });
 
 // PATCH /api/patients/:id/approved-lists/:nutrient/items/:itemId — ratify-screen actions
@@ -18,7 +21,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ itemId
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const item = await updateApprovedListItem(itemId, parsed.data.action, parsed.data.note);
+  const { action, ...edits } = parsed.data;
+  const item = await updateApprovedListItem(itemId, action, edits);
   if (!item) return NextResponse.json({ error: "item not found" }, { status: 404 });
   return NextResponse.json(item);
 }

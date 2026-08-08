@@ -32,6 +32,64 @@ enum ItemStatus {
   excluded
 }
 
+// --- Consumption logging, receipts, cycle history, messaging, onboarding (2026-08-08 increment) ---
+
+enum ReceiptParseStatus {
+  pending
+  parsed
+  failed
+  needs_review
+}
+
+enum ReceiptLineMatchFlag {
+  ok
+  needs_review
+  ambiguous
+  no_match
+}
+
+enum HabitSource {
+  receipt
+  manual
+  none
+}
+
+enum ConsumptionSource {
+  photo
+  voice
+  text
+  nudge_confirmed
+  inferred
+}
+
+enum ConsumptionFlag {
+  ok
+  needs_review
+}
+
+enum FocusItemOutcomeStatus {
+  in_progress
+  closed
+  carried_forward
+  deferred
+}
+
+enum AdherenceClassification {
+  adherent
+  partial
+  non_adherent
+}
+
+enum MessageSender {
+  patient
+  dietitian
+}
+
+enum UserRole {
+  dietitian
+  patient
+}
+
 model Practice {
   id         String      @id @default(uuid()) @db.Uuid
   name       String
@@ -53,6 +111,9 @@ model Dietitian {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
   patients   Patient[]
+  messages      Message[]
+  invitesIssued PatientInvite[]
+  user          User?
 
   @@map("dietitians")
 }
@@ -75,6 +136,7 @@ model Patient {
   bmi          Decimal? @db.Decimal(5, 2)
   bpSystolic   Int?     @map("bp_systolic")
   bpDiastolic  Int?     @map("bp_diastolic")
+  weeklyNudgeEnabled Boolean @default(true) @map("weekly_nudge_enabled")
   // Headline biomarkers for the snapshot card. Full model normalizes these into
   // lab_reports + lab_analytes; the slice keeps a display-only JSON array.
   labs         Json?
@@ -86,6 +148,14 @@ model Patient {
   cycles          Cycle[]
   approvedLists   ApprovedList[]
   patientChoices  PatientChoice[]
+  receipts          Receipt[]
+  labReports        LabReport[]
+  habitModel        HabitModel[]
+  consumptionEvents ConsumptionEvent[]
+  weightCheckIns    WeightCheckIn[]
+  messages          Message[]
+  invite            PatientInvite?
+  user              User?
 
   @@index([practiceId])
   @@map("patients")
@@ -108,6 +178,7 @@ model NutrientGap {
   focusItems     FocusSetItem[]
   approvedLists  ApprovedList[]
   patientChoices PatientChoice[]
+  cycleOutcomes  CycleOutcome[]
 
   @@unique([patientId, nutrient])
   @@index([patientId])
@@ -130,6 +201,11 @@ model Cycle {
 
   focusItems     FocusSetItem[]
   patientChoices PatientChoice[]
+  // Linked-list of cycles per patient (ER design 3.6) — chronic care repeats every 3 months.
+  previousCycleId String? @map("previous_cycle_id") @db.Uuid
+  previousCycle   Cycle?  @relation("CycleHistory", fields: [previousCycleId], references: [id])
+  nextCycles      Cycle[] @relation("CycleHistory")
+  outcomes        CycleOutcome[]
 
   @@index([patientId, status])
   @@map("cycles")
@@ -149,6 +225,8 @@ model FocusSetItem {
   excluded      Boolean     @default(false)
   excludeReason String?     @map("exclude_reason")
   createdAt     DateTime    @default(now()) @map("created_at")
+
+  outcomes CycleOutcome[]
 
   @@index([cycleId, version])
   @@map("focus_set_items")
@@ -217,6 +295,251 @@ model PatientChoice {
 
   @@index([patientId, cycleId, nutrientGapId])
   @@map("patient_choices")
+}
+
+// --- Cycle outcome history (ER design 3.18) ---------------------------------------------
+
+model CycleOutcome {
+  id             String      @id @default(uuid()) @db.Uuid
+  cycleId        String      @map("cycle_id") @db.Uuid
+  cycle          Cycle       @relation(fields: [cycleId], references: [id])
+  focusSetItemId String?     @map("focus_set_item_id") @db.Uuid
+  focusSetItem   FocusSetItem? @relation(fields: [focusSetItemId], references: [id])
+  nutrientGapId  String      @map("nutrient_gap_id") @db.Uuid
+  nutrientGap    NutrientGap @relation(fields: [nutrientGapId], references: [id])
+  baselineValue  Decimal     @map("baseline_value") @db.Decimal(10, 4)
+  retestValue    Decimal?    @map("retest_value") @db.Decimal(10, 4)
+  delta          Decimal?    @db.Decimal(10, 4)
+  improved       Boolean?
+  outcomeStatus  FocusItemOutcomeStatus @default(in_progress) @map("outcome_status")
+  adherencePct   Decimal?    @map("adherence_pct") @db.Decimal(5, 2)
+  adherenceClassification AdherenceClassification? @map("adherence_classification")
+  computedAt     DateTime?   @map("computed_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  @@unique([cycleId, nutrientGapId])
+  @@map("cycle_outcomes")
+}
+
+// --- Receipts (ER design 3.13-3.14) -----------------------------------------------------
+
+model Receipt {
+  id           String   @id @default(uuid()) @db.Uuid
+  patientId    String   @map("patient_id") @db.Uuid
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  uploadDate   DateTime @default(now()) @map("upload_date")
+  purchasedAt  DateTime? @map("purchased_at") @db.Date
+  retailer     String?
+  // MVP: relative path under STORAGE_DIR (lib/storage.ts). Column name kept as the design
+  // doc's s3_key so swapping in real S3 later is a one-function change, not a schema change.
+  s3Key        String   @map("s3_key")
+  parseStatus  ReceiptParseStatus @default(pending) @map("parse_status")
+  agentRunId   String?  @map("agent_run_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  lineItems         ReceiptLineItem[]
+  consumptionEvents ConsumptionEvent[]
+
+  @@index([patientId, uploadDate])
+  @@map("receipts")
+}
+
+model ReceiptLineItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  receiptId       String   @map("receipt_id") @db.Uuid
+  receipt         Receipt  @relation(fields: [receiptId], references: [id])
+  rawText         String   @map("raw_text")
+  matchedFood     String?  @map("matched_food")
+  fdcId           String?  @map("fdc_id")
+  quantity        Decimal? @db.Decimal(10, 3)
+  priceUsd        Decimal? @map("price_usd") @db.Decimal(10, 2)
+  matchConfidence Decimal? @map("match_confidence") @db.Decimal(4, 3)
+  matchFlag       ReceiptLineMatchFlag @default(ok) @map("match_flag")
+  // DEVIATION from er-design.md: added so the patient can review/exclude items that aren't
+  // theirs (e.g. a family member's purchase). null = awaiting review · true = confirmed
+  // mine · false = excluded. Only confirmed=true items feed the habit model.
+  confirmed       Boolean?
+  reviewedAt      DateTime? @map("reviewed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([receiptId])
+  @@map("receipt_line_items")
+}
+
+// --- Lab reports / Health Report Analyzer agent (2026-08-08 increment) -----------------
+// Mirrors Receipt/ReceiptLineItem exactly: an upload lands as draft findings (confirmed:
+// null), the model only transcribes what's on the page, and a finding only becomes a real
+// NutrientGap once the dietitian confirms it (see confirmLabFinding in lib/data.ts).
+
+enum LabReportParseStatus {
+  pending
+  parsed
+  failed
+}
+
+model LabReport {
+  id           String   @id @default(uuid()) @db.Uuid
+  patientId    String   @map("patient_id") @db.Uuid
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  uploadDate   DateTime @default(now()) @map("upload_date")
+  // Same MVP-local-disk-standing-in-for-S3 convention as Receipt.s3Key.
+  s3Key        String   @map("s3_key")
+  parseStatus  LabReportParseStatus @default(pending) @map("parse_status")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  findings LabReportFinding[]
+
+  @@index([patientId, uploadDate])
+  @@map("lab_reports")
+}
+
+model LabReportFinding {
+  id            String    @id @default(uuid()) @db.Uuid
+  labReportId   String    @map("lab_report_id") @db.Uuid
+  labReport     LabReport @relation(fields: [labReportId], references: [id])
+  nutrient      String
+  label         String
+  currentValue  Decimal   @map("current_value") @db.Decimal(10, 4)
+  unit          String
+  // null = awaiting dietitian review · true = confirmed, materialized into a NutrientGap ·
+  // false = rejected (e.g. misread value) — same tri-state as ReceiptLineItem.confirmed.
+  confirmed     Boolean?
+  reviewedAt    DateTime? @map("reviewed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([labReportId])
+  @@map("lab_report_findings")
+}
+
+// --- Habit model + consumption events (ER design 3.15-3.16) ----------------------------
+
+model HabitModel {
+  id           String     @id @default(uuid()) @db.Uuid
+  patientId    String     @map("patient_id") @db.Uuid
+  patient      Patient    @relation(fields: [patientId], references: [id])
+  foodName     String     @map("food_name")
+  fdcId        String?    @map("fdc_id")
+  freqPerWeek  Decimal    @map("freq_per_week") @db.Decimal(5, 2)
+  lastSeenDate DateTime?  @map("last_seen_date") @db.Date
+  source       HabitSource @default(none)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@unique([patientId, foodName])
+  @@map("habit_model")
+}
+
+model ConsumptionEvent {
+  id               String   @id @default(uuid()) @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  patient          Patient  @relation(fields: [patientId], references: [id])
+  foodName         String   @map("food_name")
+  fdcId            String?  @map("fdc_id")
+  // DEVIATION from er-design.md: quantity added — without it, per-day nutrient totals can't
+  // be computed against grocery_items' per-100g values.
+  quantityServings Decimal  @default(1) @map("quantity_servings") @db.Decimal(6, 2)
+  rawInput         String?  @map("raw_input") @db.Text
+  consumedDate     DateTime @map("consumed_date") @db.Date
+  source           ConsumptionSource
+  confidenceTier   Int?     @map("confidence_tier") @db.SmallInt
+  matchConfidence  Decimal? @map("match_confidence") @db.Decimal(4, 3)
+  flag             ConsumptionFlag @default(ok)
+  sourceReceiptId  String?  @map("source_receipt_id") @db.Uuid
+  sourceReceipt    Receipt? @relation(fields: [sourceReceiptId], references: [id])
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([patientId, consumedDate])
+  @@map("consumption_events")
+}
+
+// --- Weight check-ins (net new — not in er-design.md) -----------------------------------
+
+model WeightCheckIn {
+  id          String   @id @default(uuid()) @db.Uuid
+  patientId   String   @map("patient_id") @db.Uuid
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  weightLb    Decimal  @map("weight_lb") @db.Decimal(6, 2)
+  checkedInAt DateTime @default(now()) @map("checked_in_at") @db.Date
+  note        String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([patientId, checkedInAt])
+  @@map("weight_check_ins")
+}
+
+// --- Messaging (net new — no prior design; single thread per patient, mirrors the -------
+// --- existing single-primary-dietitian simplification, no Conversation wrapper needed) --
+
+model Message {
+  id          String       @id @default(uuid()) @db.Uuid
+  patientId   String       @map("patient_id") @db.Uuid
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  dietitianId String       @map("dietitian_id") @db.Uuid
+  dietitian   Dietitian    @relation(fields: [dietitianId], references: [id])
+  senderRole  MessageSender @map("sender_role")
+  body        String       @db.Text
+  readAt      DateTime?    @map("read_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@index([patientId, createdAt])
+  @@index([dietitianId, readAt])
+  @@map("messages")
+}
+
+// --- Onboarding: invite-code gate + Auth0-backed identity (ER design Part 1, Decisions 2-3)
+// --- Auth0 verification itself is mocked behind lib/auth/verifyIdentity.ts this increment --
+
+model PatientInvite {
+  id                String    @id @default(uuid()) @db.Uuid
+  patientId         String    @unique @map("patient_id") @db.Uuid
+  patient           Patient   @relation(fields: [patientId], references: [id])
+  code              String    @unique
+  issuedBy          String    @map("issued_by") @db.Uuid
+  issuedByDietitian Dietitian @relation(fields: [issuedBy], references: [id])
+  expiresAt         DateTime  @map("expires_at")
+  redeemedAt        DateTime? @map("redeemed_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@map("patient_invites")
+}
+
+// Dietitian rows carry passwordHash; patient rows carry auth0UserId — mutually exclusive.
+// Prisma can't express the CHECK constraint declaratively; it's hand-added to the generated
+// migration SQL (see prisma/migrations/.../migration.sql) and enforced again in lib/auth/.
+model User {
+  id                       String    @id @default(uuid()) @db.Uuid
+  email                    String?   @unique
+  phone                    String?   @unique
+  passwordHash             String?   @map("password_hash")
+  auth0UserId              String?   @unique @map("auth0_user_id")
+  role                     UserRole
+  dietitianId              String?   @unique @map("dietitian_id") @db.Uuid
+  dietitian                Dietitian? @relation(fields: [dietitianId], references: [id])
+  patientId                String?   @unique @map("patient_id") @db.Uuid
+  patient                  Patient?  @relation(fields: [patientId], references: [id])
+  isActive                 Boolean   @default(true) @map("is_active")
+  lastLoginAt              DateTime? @map("last_login_at")
+  passwordResetToken       String?   @map("password_reset_token")
+  passwordResetTokenExpiry DateTime? @map("password_reset_token_expiry")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  sessions Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("sessions")
 }
 
 // grocery_items — the Walmart x USDA price/nutrient join (ER design 3.20), 8,986 rows,

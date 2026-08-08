@@ -8,7 +8,9 @@
 
 > **The USP — choice within clinical bounds.** *The doctor prescribes what the body needs; the patient chooses the food that delivers it.* The dietitian fixes the nutrient target (**X**); the patient freely picks the source from a ratified menu; the agent computes how much (**Y = target ÷ nutrient-per-serving**). Same target, a food he'll actually eat — a menu he picks from, not a prescription he endures. *(Example: Sam is low on iron + vitamin C and buys a banana daily → the agent surfaces citrus / iron-rich options near his habits → he picks oranges + lentils → the agent computes the serving → Maria approves → the 3-month lab confirms.)*
 
-> **Framing note (deliberate).** A **licensed practitioner sets the targets; agents operationalize them.** Agents **draft**, the dietitian **ratifies** — clinical authority stays human, so Smart Savor is a workflow tool, not a diagnostic one. Comorbidity safety is **hybrid and human-owned**: hard rules auto-exclude, AI flags uncertain interactions, the dietitian has the last word. **Receipts prove purchase; logs prove consumption** — Smart Savor reconciles the two and nudges only on the bought-but-not-logged gap. Health data is handled with security-conscious design (encryption + Clerk-gated access); no HIPAA-compliance claim is made.
+> **Framing note (deliberate).** A **licensed practitioner sets the targets; agents operationalize them.** Agents **draft**, the dietitian **ratifies** — clinical authority stays human, so Smart Savor is a workflow tool, not a diagnostic one. Comorbidity safety is **hybrid and human-owned**: hard rules auto-exclude, AI flags uncertain interactions, the dietitian has the last word. **Receipts prove purchase; logs prove consumption** — Smart Savor reconciles the two and nudges only on the bought-but-not-logged gap. Health data is handled with security-conscious design (encryption + split auth: custom for dietitians, Auth0 for patients); no HIPAA-compliance claim is made.
+
+> **Onboarding note (decided, updated 2026-08-08).** Patients are **invite-code gated, then Auth0** — a dietitian creates the patient record and issues a one-time code; the patient enters it first, and only a valid, unredeemed code unlocks sign-up via **Auth0** (Google OAuth, or mobile number + first/last name + SMS OTP — no email or age asked on the mobile path). There is **no public patient self-signup path** — that "regular use" self-serve option is scrapped in favor of invite-only; Auth0 never runs without a valid code first. Dietitians are unaffected (custom email + password login at `/login/dietitian`). See `er-design.md` §Part 1, Decisions 2–3.
 
 ### Runtime agents (Claude Agent SDK runner) — lifecycle order
 Two shared **Skills** (A Food Matcher, B Gap Resolver) are tools, not agents. Agent 3 uses pure clinical judgment (no Skill).
@@ -66,7 +68,7 @@ Skills are shared **tools**, not agents.
 - *Evals:* **USP case — patient chooses a different menu food → correct recomputed amount (Y)** *(headline)*; low vitamin C + daily banana → citrus with correct serving; low iron + vegetarian → lentils/spinach with correct serving; **"no viable swap within constraints"** empty-menu case; *(optional)* cost-sort case when affordability is turned on.
 
 ### Bars 6–7 — Program infra
-Deploy at `<student>.apps.human-angle.com`, HTTPS + Clerk + cost cap (W5/W8); Langfuse traces + spend ceiling (W7). **Trace tagging convention:** `agent_name`, `patient_id`, `cycle_id`, `trigger`. **Cost control:** Opus Agent 3 runs only on `new_lab`; high-volume Agent 2 defaults to Haiku.
+Deploy at `<student>.apps.human-angle.com`, HTTPS + split auth (custom dietitian / Auth0 patient) + cost cap (W5/W8); Langfuse traces + spend ceiling (W7). **Trace tagging convention:** `agent_name`, `patient_id`, `cycle_id`, `trigger`. **Cost control:** Opus Agent 3 runs only on `new_lab`; high-volume Agent 2 defaults to Haiku.
 
 ---
 
@@ -99,3 +101,34 @@ A **joined reference dataset derived from two real sources**, not a fabricated o
 - **Honest-data rule:** prices and nutrients are always real; only assumed pack sizes, RACC serving estimates, and generic-equivalent micronutrient backfills are synthetic — each flagged in `data_flags` (`assumed_size`, `racc_serving`, `backfilled_micros(...)`).
 
 **Why this is a reshape of the Cooking Plan template, not a new domain:** same engineering shape, but driven by *diagnosed nutrient gaps* — layered with cycle prioritization and comorbidity screening — rather than a generic macro target, which makes the relevance filter and the join Skill more distinctive than the template's defaults.
+
+---
+
+### Post-MVP roadmap — Practice Better feature scan (2026-08-07)
+*Benchmarked against practicebetter.io/pricing (a general dietitian practice-management EHR) to sanity-check scope. Smart Savor is a narrow workflow tool layered onto an existing practice, not an EHR replacement — most of that surface area (scheduling, billing, general telehealth infra, faxing, ePrescribe/PDMP, team licensing) is deliberately not Smart Savor's job. Three things below are worth acting on.*
+
+**Validates the existing direction — no new work, confirms the bet.** Practice Better's "Nutrition & Lifestyle Support" tier is the closest competitor analog to the core loop, and it maps 1:1 to what's already built or planned:
+- Large food database → the Walmart×USDA join (`grocery_items`, 8,986 rows), growing toward Practice Better's 600k+.
+- Nutrient goal tracking → the flagged-gap / focus-set model (Agent 3).
+- Daily food/lifestyle journals → Agent 2's photo/voice/text consumption-log ingestion.
+- Protocols / lifestyle recommendations → the dietitian-ratified approved list (Agent 4).
+- Barcode scanning of foods → **not built; a near-term addition worth queuing** — a fourth, low-friction consumption-log input alongside photo/voice/text.
+
+**Now — added to the near-term roadmap:**
+- **Secure messaging (patient ↔ dietitian).** A real two-way thread, distinct from the one-way weekly nudge (Agent 5) and the agent-mediated Food Coach chat. Cheap to add on the existing `users`/session model; keeps "agent drafts, clinician reachable" intact.
+
+**Future — explicitly deferred, not this cycle:**
+- **Telehealth video + scheduling.** Patient views the dietitian's calendar and books a session; built-in video for the visit itself. Meaningfully bigger scope (availability/calendar model, video infra) — revisit once the core loop + secure messaging are proven.
+
+**Consolidated future-feature list:**
+| Feature | Category | Status |
+|---|---|---|
+| Secure messaging (patient ↔ dietitian) | Communication | **Now** |
+| Barcode scanning (consumption log) | Nutrition | Near-term |
+| Bigger USDA/Walmart join (more departments/rows) | Nutrition | Ongoing |
+| Telehealth video + doctor's-calendar scheduling | Visits | Future |
+| Wearables (Oura, Garmin, Fitbit, Apple Health) | Adherence signal | Future — objective input to bought-but-not-logged reconciliation |
+| Superbills / diagnosis-linked billing | Billing | Future — only if pursuing Food-is-Medicine reimbursement (ties to Agent 7) |
+| Weekly Fresh Produce Fulfillment (Instacart/Kroger) | Fulfillment | Already documented — Agent 7, Phase 3, out of scope for capstone |
+
+*Explicitly not on the roadmap:* general booking/scheduling infra, general EHR charting, faxing, ePrescribe/PDMP, group classes/programs, team/multi-practitioner licensing — practice-management breadth that dilutes the USP rather than sharpening it.

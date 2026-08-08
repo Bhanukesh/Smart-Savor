@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import type { FocusItem } from "@/lib/types";
+import { useEffect, useState } from "react";
+import type { FocusItem, NutrientGap, NutrientKey, Severity } from "@/lib/types";
+
+type CreatableNutrient = { nutrient: NutrientKey; label: string; unit: string };
 
 export default function FocusSetBoard({
   patientId,
@@ -14,6 +16,88 @@ export default function FocusSetBoard({
   const [overriding, setOverriding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  const [adding, setAdding] = useState(false);
+  const [available, setAvailable] = useState<NutrientGap[] | null>(null);
+  const [pickedGapId, setPickedGapId] = useState("");
+  const [why, setWhy] = useState("");
+  const [submittingAdd, setSubmittingAdd] = useState(false);
+
+  // "Track a new nutrient gap" — for the case getAvailableNutrientGaps can't help with:
+  // the patient has nothing on file for this nutrient at all yet, so there's nothing to pull
+  // from (e.g. a patient with only 1-2 gaps seeded shows an empty picker above).
+  const [creatable, setCreatable] = useState<CreatableNutrient[] | null>(null);
+  const [newNutrient, setNewNutrient] = useState("");
+  const [newCurrent, setNewCurrent] = useState("");
+  const [newTarget, setNewTarget] = useState("");
+  const [newSeverity, setNewSeverity] = useState<Severity>("moderate");
+  const [newWhy, setNewWhy] = useState("");
+  const [submittingNew, setSubmittingNew] = useState(false);
+
+  useEffect(() => {
+    if (!adding || available !== null) return;
+    fetch(`/api/patients/${patientId}/focus-set/available`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((gaps: NutrientGap[]) => {
+        setAvailable(gaps);
+        setPickedGapId(gaps[0]?.id ?? "");
+      });
+  }, [adding, available, patientId]);
+
+  useEffect(() => {
+    if (!adding || creatable !== null) return;
+    fetch(`/api/patients/${patientId}/focus-set/creatable`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((nutrients: CreatableNutrient[]) => {
+        setCreatable(nutrients);
+        setNewNutrient(nutrients[0]?.nutrient ?? "");
+      });
+  }, [adding, creatable, patientId]);
+
+  async function submitAdd() {
+    if (!pickedGapId) return;
+    setSubmittingAdd(true);
+    try {
+      const res = await fetch(`/api/patients/${patientId}/focus-set/items`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ nutrientGapId: pickedGapId, why }),
+      });
+      if (res.ok) {
+        setFocus(await res.json());
+        setAvailable((prev) => (prev ? prev.filter((g) => g.id !== pickedGapId) : prev));
+        setWhy("");
+        setAdding(false);
+      }
+    } finally {
+      setSubmittingAdd(false);
+    }
+  }
+
+  async function submitNewGap() {
+    const current = Number(newCurrent);
+    const target = Number(newTarget);
+    if (!newNutrient || !Number.isFinite(current) || !Number.isFinite(target) || target <= 0) return;
+    setSubmittingNew(true);
+    try {
+      const res = await fetch(`/api/patients/${patientId}/focus-set/new-item`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ nutrient: newNutrient, currentValue: current, targetValue: target, severity: newSeverity, why: newWhy }),
+      });
+      if (res.ok) {
+        setFocus(await res.json());
+        setCreatable((prev) => (prev ? prev.filter((n) => n.nutrient !== newNutrient) : prev));
+        setNewCurrent("");
+        setNewTarget("");
+        setNewSeverity("moderate");
+        setNewWhy("");
+        setAdding(false);
+      }
+    } finally {
+      setSubmittingNew(false);
+    }
+  }
 
   // Only active (non-excluded) items are ranked/draggable; excluded ones are pinned at the end.
   const active = focus.filter((f) => !f.excluded);
@@ -114,11 +198,149 @@ export default function FocusSetBoard({
             </button>
           </>
         ) : (
-          <button className="btn" onClick={() => setOverriding(true)}>
-            <i className="ph ph-arrows-down-up" /> Override ranking
-          </button>
+          <>
+            <button className="btn" onClick={() => setOverriding(true)}>
+              <i className="ph ph-arrows-down-up" /> Override ranking
+            </button>
+            <button className="btn" onClick={() => setAdding(true)}>
+              <i className="ph ph-plus" /> Add focus item
+            </button>
+          </>
         )}
       </div>
+
+      {adding && (
+        <div className="card" style={{ marginTop: 12, background: "var(--background)" }}>
+          <h3 style={{ margin: "0 0 10px" }}>
+            <i className="ph ph-plus-circle ic-primary" /> Bring back an existing gap
+          </h3>
+          {available === null ? (
+            <p className="sub" style={{ margin: 0 }}>Loading…</p>
+          ) : available.length === 0 ? (
+            <p className="sub" style={{ margin: 0 }}>
+              Nothing to bring back — every nutrient gap already on file for this patient is in the focus set.
+            </p>
+          ) : (
+            <>
+              <div className="field-row">
+                <label className="field-label" htmlFor="focus-gap-picker">Nutrient gap</label>
+                <select
+                  id="focus-gap-picker"
+                  className="field"
+                  value={pickedGapId}
+                  onChange={(e) => setPickedGapId(e.target.value)}
+                >
+                  {available.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.label} — target {g.targetValue}{g.unit}, current {g.currentValue}{g.unit}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field-row" style={{ marginTop: 10 }}>
+                <label className="field-label" htmlFor="focus-gap-why">Reason (optional)</label>
+                <input
+                  id="focus-gap-why"
+                  className="field"
+                  placeholder="Why this gap belongs in this cycle's focus set…"
+                  value={why}
+                  onChange={(e) => setWhy(e.target.value)}
+                />
+              </div>
+              <div className="btn-row" style={{ marginTop: 12 }}>
+                <button className="btn primary" disabled={submittingAdd || !pickedGapId} onClick={submitAdd}>
+                  {submittingAdd ? "Adding…" : "Add to focus set"}
+                </button>
+              </div>
+            </>
+          )}
+
+          <hr style={{ margin: "16px 0", border: "none", borderTop: "1px solid var(--border)" }} />
+
+          <h3 style={{ margin: "0 0 10px" }}>
+            <i className="ph ph-flask ic-primary" /> Track a new nutrient gap
+          </h3>
+          {creatable === null ? (
+            <p className="sub" style={{ margin: 0 }}>Loading…</p>
+          ) : creatable.length === 0 ? (
+            <p className="sub" style={{ margin: 0 }}>
+              Every nutrient this app tracks is already on file for this patient.
+            </p>
+          ) : (
+            <>
+              <div className="field-row">
+                <label className="field-label" htmlFor="new-nutrient-picker">Nutrient</label>
+                <select
+                  id="new-nutrient-picker"
+                  className="field"
+                  value={newNutrient}
+                  onChange={(e) => setNewNutrient(e.target.value)}
+                >
+                  {creatable.map((n) => (
+                    <option key={n.nutrient} value={n.nutrient}>{n.label} ({n.unit})</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <div className="field-row" style={{ flex: 1 }}>
+                  <label className="field-label" htmlFor="new-current">Current value</label>
+                  <input
+                    id="new-current" type="number" step="0.1" className="field"
+                    value={newCurrent} onChange={(e) => setNewCurrent(e.target.value)}
+                  />
+                </div>
+                <div className="field-row" style={{ flex: 1 }}>
+                  <label className="field-label" htmlFor="new-target">Target value</label>
+                  <input
+                    id="new-target" type="number" step="0.1" className="field"
+                    value={newTarget} onChange={(e) => setNewTarget(e.target.value)}
+                  />
+                </div>
+                <div className="field-row" style={{ flex: 1 }}>
+                  <label className="field-label" htmlFor="new-severity">Severity</label>
+                  <select
+                    id="new-severity" className="field" value={newSeverity}
+                    onChange={(e) => setNewSeverity(e.target.value as Severity)}
+                  >
+                    <option value="severe">Severe</option>
+                    <option value="moderate">Moderate</option>
+                    <option value="mild">Mild</option>
+                  </select>
+                </div>
+              </div>
+              <div className="field-row" style={{ marginTop: 10 }}>
+                <label className="field-label" htmlFor="new-why">Reason (optional)</label>
+                <input
+                  id="new-why"
+                  className="field"
+                  placeholder="Why this gap belongs in this cycle's focus set…"
+                  value={newWhy}
+                  onChange={(e) => setNewWhy(e.target.value)}
+                />
+              </div>
+              <div className="btn-row" style={{ marginTop: 12 }}>
+                <button
+                  className="btn primary"
+                  disabled={submittingNew || !newNutrient || !newCurrent || !newTarget}
+                  onClick={submitNewGap}
+                >
+                  {submittingNew ? "Adding…" : "Track & add to focus set"}
+                </button>
+              </div>
+            </>
+          )}
+
+          <div className="btn-row" style={{ marginTop: 16 }}>
+            <button
+              className="btn"
+              disabled={submittingAdd || submittingNew}
+              onClick={() => { setAdding(false); setWhy(""); setNewWhy(""); }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

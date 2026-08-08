@@ -118,6 +118,54 @@ def log_intake(patient_id: str, item: str, freq_per_week: float, date: str) -> d
     return {"logged": ok, "patient_id": patient_id, "item": item}
 
 
+# --- Agent 2 (Ingestion): consumption events -------------------------------------
+@mcp.tool()
+def add_consumption_event(patient_id: str, event: dict) -> dict:
+    """Record a CONSUMPTION event from a food log: {item, date, source, confidence}.
+
+    Distinct from log_intake (purchase signal, from receipts). Confidence reflects
+    how the event was captured: photo > nudge-confirmed > inferred.
+    """
+    ok = store.add_consumption_event(patient_id, event)
+    return {"logged": ok, "patient_id": patient_id, "event": event}
+
+
+# --- Agent 4 (Swap Sourcing): approved lists + patient choices -------------------
+@mcp.tool()
+def save_approved_list(patient_id: str, nutrient: str, items: list[dict]) -> dict:
+    """Persist the dietitian-ratified approved swap menu for a nutrient gap.
+
+    Written only after the dietitian ratifies the agent-drafted menu (D2/D3) — the
+    patient never sees an unratified list.
+    """
+    ok = store.save_approved_list(patient_id, nutrient, items)
+    return {"saved": ok, "patient_id": patient_id, "nutrient": nutrient, "count": len(items)}
+
+
+@mcp.tool()
+def get_approved_list(patient_id: str, nutrient: str) -> dict:
+    """Return the dietitian-ratified approved swap menu for a nutrient gap."""
+    items = store.get_approved_list(patient_id, nutrient)
+    return {"patient_id": patient_id, "nutrient": nutrient, "items": items}
+
+
+@mcp.tool()
+def save_patient_choice(patient_id: str, choice: dict) -> dict:
+    """Record the food the patient picked from the ratified menu + the recomputed
+    amount (the USP moment): Y = target / nutrient-per-serving.
+    """
+    ok = store.save_patient_choice(patient_id, choice)
+    return {"saved": ok, "patient_id": patient_id, "choice": choice}
+
+
+# --- Agent 5 (Nudge) --------------------------------------------------------------
+@mcp.tool()
+def add_nudge(patient_id: str, nudge: dict) -> dict:
+    """Record a weekly adherence nudge sent for a bought-but-not-logged gap food."""
+    ok = store.add_nudge(patient_id, nudge)
+    return {"saved": ok, "patient_id": patient_id, "nudge": nudge}
+
+
 @mcp.tool()
 def save_patient_intake(patient_id: str, profile: dict) -> dict:
     """Persist a demographics + medical-history + constraints profile drafted by the

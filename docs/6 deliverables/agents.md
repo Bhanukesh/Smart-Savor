@@ -131,6 +131,24 @@ Agent 1 (Intake) is already built.
 - **Stays as code:** the trigger queue, scheduler, and change-detection diffs.
 - **Tools:** scheduler (Celery/cron), the other agents.
 
+### Agent 5.5 — Food Coach (BUILT, live app)  ·  Sonnet 5
+*Patient-facing chat, cross-cutting alongside 4/5. Lives in the actual Next.js app (`lib/foodCoach.ts`,
+`app/api/patients/[id]/coach`, `/me/coach`) — NOT the `smart-savor-mcp/` Python prototype the other
+five agents are documented against; that folder isn't wired into the live app.*
+- **Responsibility:** let the patient ask about their focus set and make the USP choose-a-food
+  moment by conversation instead of tapping a card.
+- **How it uses AI:** a genuine multi-step **tool-use loop** (the first one in the codebase — Agents
+  1–5 above are single-shot or deterministic-code-heavy) — the model decides which reads it needs
+  (`get_profile`, `get_focus_set`, `get_approved_list`) and whether the patient's request maps to a
+  real ratified item, then calls `choose_food`.
+- **Stays as code:** the recompute itself — `choose_food` calls the exact same `createChoice` →
+  `computeChoice` path the swap screen's tap-to-pick uses, so a chat-driven choice and a tap-driven
+  choice can never disagree.
+- **Boundary:** read-only over profile/focus-set/approved-list; the only write is `choose_food`, and
+  only against items already on a **ratified** approved list — it can never invent a food or imply a
+  target changed.
+- **Tools:** Anthropic SDK (`@anthropic-ai/sdk`), `lib/data.ts` (Prisma).
+
 ### Post-MVP runtime agents (documented, not built for capstone)
 - **Cycle Outcome Analyst** — baseline vs. 3-month re-test → what graduated / carries over, drafts the
   D4 cycle summary, and **computes the internal dose-response** (adherent vs. non-adherent improvement)

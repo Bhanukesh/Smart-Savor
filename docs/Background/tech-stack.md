@@ -14,7 +14,7 @@
 | LLM | **Claude — Opus 4.8 / Sonnet 4.6 / Haiku 4.5** | Tiered by task (see §3) |
 | Sources | **3 MCP servers (2 off-the-shelf + 1 custom)** | Bar 3 requirement |
 | Datastore | **PostgreSQL (+ pgvector)** | Relational patient/cycle data + semantic match for the Food Matcher |
-| Auth | **Custom — dual login portals (no Clerk)** | Bar 6/7; gates health data. Separate dietitian + patient logins over one `users` table (see `er-design.md` §Part 1) |
+| Auth | **Dietitian: custom login · Patient: Auth0 (Google + phone OTP), invite-code gated** | Bar 6/7; gates health data. Split mechanism, one shared `users` table (see `er-design.md` §Part 1) |
 | PDF | **WeasyPrint** | Bar 4 multi-modal output |
 | Email | **Resend** | Bar 4 optional 3rd output lane |
 | Observability | **Langfuse** | Bar 7 traces + spend ceiling |
@@ -65,7 +65,8 @@
 - **Object storage** (S3-compatible) for uploaded receipt images and generated PDFs.
 
 ## 6. Auth & Security (Bars 6–7)
-- **Custom auth — two separate login portals (no third-party provider).** Dietitians log in at `/login/dietitian` → `/rx/*`; patients log in at `/login/patient` → `/me/*`. A shared `users` table holds credentials (email, bcrypt hash cost-12, `role`, nullable FK to `dietitians` or `patients`); the `role` column is the gate so a dietitian token can never reach a patient endpoint and vice versa. See `er-design.md` §Part 1 for the full table + auth-flow spec.
+- **Split auth, one shared `users` table (updated 2026-08-08).** Dietitians log in at `/login/dietitian` → `/rx/*` with **custom email + password auth** (no third-party provider). Patients authenticate via **Auth0** (Google OAuth or phone/SMS OTP) at `/login/patient` → `/me/*`. A shared `users` table maps both to `role` + a nullable FK pair (`dietitians` or `patients`); dietitian rows carry a `password_hash`, patient rows carry an `auth0_user_id` instead. The `role` column is the gate so a dietitian token can never reach a patient endpoint and vice versa. See `er-design.md` §Part 1 for the full table + auth-flow spec.
+- **Patient onboarding is invite-code gated, then Auth0.** A dietitian creates the patient and issues a one-time code; the patient enters it at `/invite` — only a valid, unredeemed code unlocks the Auth0 sign-up step (Google or mobile + OTP; first/last name only on the mobile path, no email or age asked). **No public patient self-signup path** (the "regular use" self-serve option is scrapped) — Auth0 never runs without a valid invite first. See `er-design.md` §Part 1, Decisions 2–3.
 - **Sessions** — httpOnly cookie + server-side Redis session (durable fallback row in Postgres); simpler to revoke than JWT.
 - **Encryption** — TLS in transit; encryption at rest for health data and receipts.
 - **Tenancy** — `practices` is the top-level tenant; patients + dietitians scope to a practice. Full multi-tenant isolation hardening is a P2/future item, not capstone.

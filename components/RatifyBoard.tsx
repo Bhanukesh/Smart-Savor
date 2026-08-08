@@ -35,9 +35,11 @@ export default function RatifyBoard({
 }) {
   const [items, setItems] = useState(initialItems);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftNote, setDraftNote] = useState("");
+  const [draftAmount, setDraftAmount] = useState("");
+  const [draftUnit, setDraftUnit] = useState("");
+  const [draftServing, setDraftServing] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -83,13 +85,17 @@ export default function RatifyBoard({
     }
   }
 
-  async function act(itemId: string, action: "approve" | "restore" | "remove" | "edit", note?: string) {
+  async function act(
+    itemId: string,
+    action: "approve" | "restore" | "remove" | "edit",
+    edits?: { note?: string; amountPerServing?: number; unit?: string; servingDescription?: string },
+  ) {
     setBusyId(itemId);
     try {
       const res = await fetch(`/api/patients/${patientId}/approved-lists/${nutrient}/items/${itemId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, note }),
+        body: JSON.stringify({ action, ...edits }),
       });
       if (!res.ok) return;
       const updated: ApprovedListItem = await res.json();
@@ -106,31 +112,28 @@ export default function RatifyBoard({
   function startEdit(item: ApprovedListItem) {
     setEditingId(item.id);
     setDraftNote(item.note);
+    setDraftAmount(String(item.amountPerServing));
+    setDraftUnit(item.unit);
+    setDraftServing(item.servingDescription);
   }
 
   function cancelEdit() {
     setEditingId(null);
     setDraftNote("");
+    setDraftAmount("");
+    setDraftUnit("");
+    setDraftServing("");
   }
 
   async function saveEdit(itemId: string) {
-    await act(itemId, "edit", draftNote);
-    setEditingId(null);
-    setDraftNote("");
-  }
-
-  async function addCandidate() {
-    setGenerating(true);
-    try {
-      const res = await fetch(`/api/patients/${patientId}/approved-lists/${nutrient}/generate`, {
-        method: "POST",
-      });
-      if (!res.ok) return;
-      const list: ApprovedList = await res.json();
-      setItems(list.items);
-    } finally {
-      setGenerating(false);
-    }
+    const amount = Number(draftAmount);
+    await act(itemId, "edit", {
+      note: draftNote,
+      ...(Number.isFinite(amount) && amount > 0 && { amountPerServing: amount }),
+      ...(draftUnit.trim() && { unit: draftUnit.trim() }),
+      ...(draftServing.trim() && { servingDescription: draftServing.trim() }),
+    });
+    cancelEdit();
   }
 
   return (
@@ -202,14 +205,44 @@ export default function RatifyBoard({
                 </span>
               </div>
               {editing ? (
-                <textarea
-                  className="field"
-                  rows={2}
-                  autoFocus
-                  value={draftNote}
-                  onChange={(e) => setDraftNote(e.target.value)}
-                  style={{ marginTop: 6 }}
-                />
+                <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      className="field"
+                      autoFocus
+                      value={draftAmount}
+                      onChange={(e) => setDraftAmount(e.target.value)}
+                      style={{ width: 90 }}
+                      aria-label="Amount per serving"
+                    />
+                    <input
+                      className="field"
+                      value={draftUnit}
+                      onChange={(e) => setDraftUnit(e.target.value)}
+                      style={{ width: 90 }}
+                      aria-label="Unit"
+                      placeholder="mg, g…"
+                    />
+                    <input
+                      className="field"
+                      value={draftServing}
+                      onChange={(e) => setDraftServing(e.target.value)}
+                      style={{ flex: 1 }}
+                      aria-label="Serving description"
+                      placeholder="1 cup, cooked…"
+                    />
+                  </div>
+                  <textarea
+                    className="field"
+                    rows={2}
+                    value={draftNote}
+                    onChange={(e) => setDraftNote(e.target.value)}
+                    placeholder="Note for the patient…"
+                  />
+                </div>
               ) : (
                 <div className="meta">
                   ~{it.amountPerServing} {it.unit} {nutrient === "iron" ? "iron" : nutrientLabel.toLowerCase()}/
@@ -245,9 +278,6 @@ export default function RatifyBoard({
         <Link className="btn primary" href="/me/swap">
           Publish ratified menu to {patientFirstName} <i className="ph-bold ph-arrow-right" />
         </Link>
-        <button className="btn" disabled={generating} onClick={addCandidate}>
-          {generating ? "Sourcing…" : "Add candidate"}
-        </button>
       </div>
     </div>
   );

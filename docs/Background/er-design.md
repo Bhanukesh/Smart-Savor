@@ -29,45 +29,59 @@ Practice ──< Dietitian ──< PatientDietitian >── Patient
   - Co-management (two dietitians, e.g. on complication, both rows active)
   - Historical assignments (soft-ended with `ended_at`)
 
-### Decision 2: Auth — Custom auth, two login portals (no Clerk)
+### Decision 2: Auth — split by role (dietitian: custom; patient: Auth0) (updated 2026-08-08)
 
-No third-party auth provider. We build two separate login portals:
-- `/login/dietitian` → dietitian command center (`/rx/*`)
-- `/login/patient` → patient app (`/me/*`)
+Two different auth mechanisms, one shared `users` table:
+- **Dietitian** — `/login/dietitian` → dietitian command center (`/rx/*`). Custom, no third-party
+  provider: email + password, our own session.
+- **Patient** — `/me/*`. **Auth0** (Google OAuth or phone/SMS OTP) gates identity; a valid,
+  unredeemed invite code (Decision 3) gates *whether Auth0 even runs* — Auth0 gets invoked only
+  after the code checks out, so "invite-only" still holds even though a third party now handles
+  the patient's actual sign-in.
 
-**How it works:**
+**Why the split:** dietitian accounts are few, practice-provisioned, and password auth is fine
+there. Patient accounts are the volume side and benefit from Auth0's passwordless SMS OTP + Google
+federation — building and maintaining that ourselves (SMS delivery, OTP rate-limiting, Google OAuth
+handshake) isn't where this project's effort should go. This reverses the earlier "no third-party
+auth provider" stance for patients specifically; dietitian auth is unchanged.
 
-A single `users` table stores credentials and maps to either a `dietitians` row or a `patients` row via `role` + a nullable FK pair. The app never lets a dietitian token reach a patient endpoint and vice versa — the `role` column is the gate.
+**How it works:** a single `users` table stores identity and maps to either a `dietitians` row or a
+`patients` row via `role` + a nullable FK pair, same as before. The app never lets a dietitian token
+reach a patient endpoint and vice versa — the `role` column is the gate. Dietitian rows carry a
+`password_hash`; patient rows carry an `auth0_user_id` (the Auth0 `sub` claim) instead — never both.
 
-Why a shared `users` table instead of credentials on each table?
-- Credentials (email, password hash, session tokens, password-reset tokens) are auth concerns — they don't belong scattered across domain tables.
-- One place to invalidate sessions, rotate tokens, and enforce password policy.
-- Clean separation: `users` = who you are; `dietitians`/`patients` = what you do.
+**Session strategy (dietitian):** server-side sessions in Redis (keyed by `session_token`), with a
+`sessions` table in Postgres as a durable fallback. httpOnly cookie, simpler to revoke than JWT.
 
-**Session strategy:** server-side sessions stored in Redis (keyed by `session_token`), with a `sessions` table in Postgres as a durable fallback. JWT is an alternative — pick one before implementation and document it. Recommendation: **httpOnly cookie + Redis session** for v1 (simpler to revoke than JWT).
+**Session strategy (patient):** Auth0 handles the actual authentication; on successful callback our
+backend verifies the ID token, upserts the `users` row, and issues our own httpOnly-cookie session
+(same shape as the dietitian session) so every downstream `/api/*` check stays uniform regardless of
+which auth mechanism originally established identity.
 
-**Password storage:** `bcrypt` hash (cost factor 12). Never store plaintext.
+**Password storage (dietitian only):** `bcrypt` hash (cost factor 12). Never store plaintext.
 
 **`users` table:**
 
 ```sql
 users
 ├── id                UUID PK DEFAULT gen_random_uuid()
-├── email             VARCHAR(255) UNIQUE NOT NULL
-├── password_hash     VARCHAR(255) NOT NULL             -- bcrypt, cost 12
+├── email             VARCHAR(255) UNIQUE               -- nullable: phone-only patient signups may not have one
+├── phone             VARCHAR(20) UNIQUE                -- patients who verified via SMS OTP
+├── password_hash     VARCHAR(255)                      -- bcrypt, cost 12 — dietitians only
+├── auth0_user_id     VARCHAR(255) UNIQUE               -- Auth0 `sub` claim — patients only
 ├── role              VARCHAR(20) NOT NULL              -- 'dietitian' | 'patient'
 ├── dietitian_id      UUID UNIQUE REFERENCES dietitians(id)  -- non-null when role='dietitian'
 ├── patient_id        UUID UNIQUE REFERENCES patients(id)    -- non-null when role='patient'
 ├── is_active         BOOLEAN NOT NULL DEFAULT true     -- false = account suspended
 ├── last_login_at     TIMESTAMPTZ
-├── password_reset_token        VARCHAR(255)
+├── password_reset_token        VARCHAR(255)             -- dietitians only
 ├── password_reset_token_expiry TIMESTAMPTZ
 ├── created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 └── updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 
 CHECK (
-  (role = 'dietitian' AND dietitian_id IS NOT NULL AND patient_id IS NULL) OR
-  (role = 'patient'   AND patient_id IS NOT NULL   AND dietitian_id IS NULL)
+  (role = 'dietitian' AND dietitian_id IS NOT NULL AND patient_id IS NULL AND password_hash IS NOT NULL) OR
+  (role = 'patient'   AND patient_id IS NOT NULL   AND dietitian_id IS NULL AND auth0_user_id IS NOT NULL)
 )
 ```
 
@@ -76,9 +90,52 @@ CHECK (
 2. Every `/rx/*` request → middleware reads cookie → resolves `user.dietitian_id` → injects `dietitian` into request context
 3. `POST /api/auth/dietitian/logout` → invalidate session
 
-**Auth flow (patient):** identical, on `/api/auth/patient/login` → resolves `user.patient_id`.
+**Auth flow (patient):** see Decision 3 — gated by invite-code validation first, then Auth0.
 
 **Remove from other tables:** `clerk_user_id` columns are gone. `practices.clerk_org_id` is gone.
+
+### Decision 3: Patient onboarding — invite-code gated, Auth0 for sign-up (updated 2026-08-08)
+
+**No public patient self-signup.** A patient can only ever reach the Auth0 sign-up step by first
+redeeming a one-time invite code their dietitian issued. The earlier "regular use" option (patient
+self-serve sign-up, no dietitian relationship required first) is **scrapped** — every patient in the
+system traces back to a dietitian who added them. Dietitian accounts are unaffected: they're
+provisioned normally (Decision 2), not via invite code or Auth0.
+
+**`patient_invites` table:**
+
+```sql
+patient_invites
+├── id            UUID PK DEFAULT gen_random_uuid()
+├── patient_id    UUID UNIQUE NOT NULL REFERENCES patients(id)  -- one live invite per patient
+├── code          VARCHAR(32) UNIQUE NOT NULL       -- random, URL-safe; what the dietitian shares
+├── issued_by     UUID NOT NULL REFERENCES dietitians(id)
+├── expires_at    TIMESTAMPTZ NOT NULL              -- short-lived (e.g. 14 days)
+├── redeemed_at   TIMESTAMPTZ                       -- null until used; one-time
+└── created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+```
+
+**Flow:**
+1. Dietitian creates the patient record (D5 intake / manual add in `/rx`) → the system generates a
+   `patient_invites` row + code in the same step.
+2. Dietitian hands the patient the code (printed after-visit summary today; optional Resend email
+   later — no new channel required for v1).
+3. Patient opens the app → splash → **enters the invite code** at `/invite` → validate
+   **unexpired, unredeemed** against `patient_invites`. Wrong/expired code stops here — Auth0 never
+   runs.
+4. Code checks out → **sign up via Auth0**: either
+   - **Google** (federated) — Auth0 returns name + email from the Google profile automatically, or
+   - **Mobile number** — patient enters first + last name (no email, no age) + phone → Auth0 sends
+     an SMS OTP → patient verifies it.
+5. On successful Auth0 callback, backend verifies the ID token and creates the `users` row
+   (`role='patient'`, `auth0_user_id`, `patient_id` from the invite, `email`/`phone` from whichever
+   method was used) → stamps `patient_invites.redeemed_at`.
+6. From then on the patient authenticates via Auth0 directly at `/login/patient` — no invite code
+   needed on return visits, same as any normal login.
+
+A reissue (lost/expired code) just generates a new code for the same `patient_id` — the `UNIQUE`
+constraint on `patient_id` means the dietitian's "resend invite" action overwrites the row rather
+than accumulating stale ones.
 
 ---
 
