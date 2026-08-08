@@ -47,6 +47,38 @@ export async function createPatient(input: { name: string; age: number }): Promi
   return { id: patient.id };
 }
 
+/** Delete a patient and every row that hangs off them. No cascade delete is declared in the
+ * schema (deliberately — a stray FK-triggered cascade is how you lose data you meant to
+ * keep), so this walks the relation graph explicitly, children before parents, in one
+ * transaction. Used for removing test/mistake patients from the console; there's no undo. */
+export async function deletePatient(patientId: string): Promise<boolean> {
+  const patient = await prisma.patient.findUnique({ where: { id: patientId }, select: { id: true } });
+  if (!patient) return false;
+
+  await prisma.$transaction([
+    prisma.session.deleteMany({ where: { user: { patientId } } }),
+    prisma.cycleOutcome.deleteMany({ where: { cycle: { patientId } } }),
+    prisma.patientChoice.deleteMany({ where: { patientId } }),
+    prisma.approvedListItem.deleteMany({ where: { approvedList: { patientId } } }),
+    prisma.focusSetItem.deleteMany({ where: { cycle: { patientId } } }),
+    prisma.approvedList.deleteMany({ where: { patientId } }),
+    prisma.consumptionEvent.deleteMany({ where: { patientId } }),
+    prisma.receiptLineItem.deleteMany({ where: { receipt: { patientId } } }),
+    prisma.receipt.deleteMany({ where: { patientId } }),
+    prisma.labReportFinding.deleteMany({ where: { labReport: { patientId } } }),
+    prisma.labReport.deleteMany({ where: { patientId } }),
+    prisma.habitModel.deleteMany({ where: { patientId } }),
+    prisma.weightCheckIn.deleteMany({ where: { patientId } }),
+    prisma.message.deleteMany({ where: { patientId } }),
+    prisma.patientInvite.deleteMany({ where: { patientId } }),
+    prisma.nutrientGap.deleteMany({ where: { patientId } }),
+    prisma.cycle.deleteMany({ where: { patientId } }),
+    prisma.user.deleteMany({ where: { patientId } }),
+    prisma.patient.delete({ where: { id: patientId } }),
+  ]);
+  return true;
+}
+
 export type RosterStatus = "needs_review" | "awaiting_review" | "patient_message" | "on_track";
 
 const ROSTER_STATUS_PRIORITY: Record<RosterStatus, number> = {

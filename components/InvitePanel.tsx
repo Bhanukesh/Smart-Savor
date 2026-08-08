@@ -31,9 +31,9 @@ export default function InvitePanel({ patientId, patientFirstName }: { patientId
     }
   }
 
-  async function copy(code: string) {
+  async function copyLink(code: string) {
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(`${window.location.origin}/invite/signup?code=${code}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -76,23 +76,18 @@ export default function InvitePanel({ patientId, patientFirstName }: { patientId
       ) : (
         <>
           <p className="sub" style={{ margin: "0 0 10px" }}>
-            {expired ? "This code expired — generate a new one." : `Give this code to ${patientFirstName} to sign up.`}
+            {expired ? "This code expired — generate a new one." : `Send this link to ${patientFirstName} — it opens straight to sign-up, no code to type.`}
           </p>
-          <div className="btn-row" style={{ marginBottom: 12 }}>
-            <code
-              style={{
-                fontSize: 18, fontWeight: 700, letterSpacing: "0.04em", padding: "8px 14px",
-                background: "var(--background)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
-              }}
-            >
-              {invite.code}
-            </code>
-            {!expired && (
-              <button className="btn sm" onClick={() => copy(invite.code)}>
-                <i className={`ph ${copied ? "ph-check" : "ph-copy"}`} /> {copied ? "Copied" : "Copy"}
+          {!expired && (
+            <div className="btn-row" style={{ marginBottom: 12 }}>
+              <button className="btn primary sm" onClick={() => copyLink(invite.code)}>
+                <i className={`ph ${copied ? "ph-check" : "ph-link"}`} /> {copied ? "Link copied" : "Copy invite link"}
               </button>
-            )}
-          </div>
+            </div>
+          )}
+          <p className="sub" style={{ margin: "0 0 4px", fontSize: 12.5 }}>
+            Or give them the code directly: <code style={{ fontWeight: 700, letterSpacing: "0.04em" }}>{invite.code}</code>
+          </p>
           <p className="sub" style={{ margin: "0 0 12px", fontSize: 12.5 }}>
             Expires {new Date(invite.expiresAt).toLocaleDateString()}
           </p>
