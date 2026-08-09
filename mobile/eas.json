@@ -1,0 +1,20 @@
+{
+  "cli": {
+    "version": ">= 17.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://smartsavor.apps.human-angle.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
