@@ -44,6 +44,16 @@ export async function createPatient(input: { name: string; age: number }): Promi
       enrolledAt: new Date(),
     },
   });
+  // Every downstream screen (focus set, available gaps, approved lists, ratify, swap) keys off
+  // an active Cycle — without one, confirmed lab findings become NutrientGap rows with nothing
+  // to surface them anywhere. Seeded demo patients get a Cycle from prisma/seed.ts directly;
+  // patients created here need the same thing, or they're a dead end the moment a lab is confirmed.
+  const startDate = new Date();
+  const retestDueDate = new Date(startDate);
+  retestDueDate.setDate(retestDueDate.getDate() + 90);
+  await prisma.cycle.create({
+    data: { patientId: patient.id, startDate, retestDueDate, status: "active", focusSetVersion: 0 },
+  });
   return { id: patient.id };
 }
 
@@ -213,8 +223,27 @@ export async function resolvePatient(patientId?: string): Promise<Patient | null
   return patientId ? getPatient(patientId) : getDemoPatient();
 }
 
+/** Every focus-set/gap/approved-list function keys off an active Cycle. createPatient() creates
+ * one up front now, but this self-heals any patient that predates that fix (or was created some
+ * other way) instead of leaving their confirmed lab findings permanently unreachable. */
+async function ensureActiveCycle(patientId: string) {
+  const existing = await prisma.cycle.findFirst({ where: { patientId }, orderBy: { startDate: "desc" } });
+  if (existing) return existing;
+  // Callers treat a null cycle as "patient not found" (routes only check UUID format upstream,
+  // not real existence) — confirm the patient is real before creating one, so a bogus id still
+  // 404s instead of throwing on the FK constraint.
+  const patient = await prisma.patient.findUnique({ where: { id: patientId }, select: { id: true } });
+  if (!patient) return null;
+  const startDate = new Date();
+  const retestDueDate = new Date(startDate);
+  retestDueDate.setDate(retestDueDate.getDate() + 90);
+  return prisma.cycle.create({
+    data: { patientId, startDate, retestDueDate, status: "active", focusSetVersion: 0 },
+  });
+}
+
 export async function getFocusSet(patientId: string): Promise<FocusItem[]> {
-  const cycle = await prisma.cycle.findFirst({ where: { patientId }, orderBy: { startDate: "desc" } });
+  const cycle = await ensureActiveCycle(patientId);
   if (!cycle) return [];
   const items = await prisma.focusSetItem.findMany({
     where: { cycleId: cycle.id, version: cycle.focusSetVersion },
@@ -239,7 +268,7 @@ export async function reorderFocusSet(
   patientId: string,
   orderedNutrientGapIds: string[],
 ): Promise<FocusItem[] | null> {
-  const cycle = await prisma.cycle.findFirst({ where: { patientId }, orderBy: { startDate: "desc" } });
+  const cycle = await ensureActiveCycle(patientId);
   if (!cycle) return null;
   await Promise.all(
     orderedNutrientGapIds.map((nutrientGapId, i) =>
@@ -256,7 +285,7 @@ export async function reorderFocusSet(
  * the pool "Add focus item" picks from. A gap can exist (e.g. from labs) without ever being
  * ranked; this is what lets a dietitian bring one in deliberately. */
 export async function getAvailableNutrientGaps(patientId: string): Promise<NutrientGap[]> {
-  const cycle = await prisma.cycle.findFirst({ where: { patientId }, orderBy: { startDate: "desc" } });
+  const cycle = await ensureActiveCycle(patientId);
   if (!cycle) return [];
   const included = await prisma.focusSetItem.findMany({
     where: { cycleId: cycle.id, version: cycle.focusSetVersion },
@@ -277,7 +306,7 @@ export async function addFocusItem(
   nutrientGapId: string,
   why: string,
 ): Promise<FocusItem[] | null> {
-  const cycle = await prisma.cycle.findFirst({ where: { patientId }, orderBy: { startDate: "desc" } });
+  const cycle = await ensureActiveCycle(patientId);
   if (!cycle) return null;
   const gap = await prisma.nutrientGap.findFirst({ where: { id: nutrientGapId, patientId } });
   if (!gap) return null;
@@ -427,7 +456,7 @@ export async function getCycleConfirmedAt(patientId: string): Promise<string | n
 }
 
 export async function confirmFocusSet(patientId: string): Promise<string | null> {
-  const cycle = await prisma.cycle.findFirst({ where: { patientId }, orderBy: { startDate: "desc" } });
+  const cycle = await ensureActiveCycle(patientId);
   if (!cycle) return null;
   const updated = await prisma.cycle.update({
     where: { id: cycle.id },
@@ -555,7 +584,7 @@ export async function createChoice(
     gapRemaining: remaining, gapUnit: gap.unit,
   });
 
-  const cycle = await prisma.cycle.findFirst({ where: { patientId }, orderBy: { startDate: "desc" } });
+  const cycle = await ensureActiveCycle(patientId);
   if (cycle) {
     await prisma.patientChoice.updateMany({
       where: { patientId, nutrientGapId: gap.id, supersededAt: null },

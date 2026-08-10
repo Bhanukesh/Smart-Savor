@@ -6,6 +6,7 @@ import Card from "../../components/Card";
 import TextField from "../../components/TextField";
 import Button from "../../components/Button";
 import Note from "../../components/Note";
+import BrandMark from "../../components/BrandMark";
 import { colors, spacing } from "../../lib/theme";
 
 export default function InviteCodeScreen() {
@@ -20,6 +21,7 @@ export default function InviteCodeScreen() {
   return (
     <Screen>
       <View style={styles.brand}>
+        <BrandMark size={56} />
         <Text style={styles.brandText}>Smart Savor</Text>
       </View>
       <Card>
@@ -43,8 +45,8 @@ export default function InviteCodeScreen() {
 }
 
 const styles = StyleSheet.create({
-  brand: { alignItems: "center", marginBottom: spacing.xl, marginTop: spacing.lg },
-  brandText: { fontSize: 22, fontWeight: "800", color: colors.primaryDeep },
+  brand: { alignItems: "center", gap: 10, marginBottom: spacing.xl, marginTop: spacing.lg },
+  brandText: { fontSize: 22, fontWeight: "800", color: colors.primaryDeep, letterSpacing: -0.3 },
   h1: { fontSize: 20, fontWeight: "800", color: colors.foreground, marginBottom: 6 },
   sub: { fontSize: 14, color: colors.mutedForeground, marginBottom: spacing.lg },
 });

@@ -9,25 +9,27 @@ import Note from "../../components/Note";
 import { colors, spacing } from "../../lib/theme";
 import { redeemInvite } from "../../lib/api";
 
+// Mobile signup path (er-design.md §Part 1, Decisions 2-3): phone number + name, no email or
+// age asked here — that's the web/Google-OAuth path's shape, not this one. Real SMS OTP delivery
+// needs Auth0 wired in; verifyIdentity() is mocked and accepts whatever's submitted, so this
+// collects the phone number honestly without pretending a code was actually texted.
 export default function SignupScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
+  const [phone, setPhone] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit() {
-    if (!firstName.trim() || !code) return;
+    if (!phone.trim() || !firstName.trim() || !code) return;
     setSubmitting(true);
     setError(null);
     try {
       const result = await redeemInvite(code, {
-        firstName: firstName.trim() || undefined,
+        phone: phone.trim(),
+        firstName: firstName.trim(),
         lastName: lastName.trim() || undefined,
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
       });
       router.push({
         pathname: "/(auth)/welcome",
@@ -43,21 +45,27 @@ export default function SignupScreen() {
   return (
     <Screen>
       <Card>
-        <Text style={styles.h1}>A couple details</Text>
+        <Text style={styles.h1}>Sign up with your number</Text>
         <Text style={styles.sub}>
-          This stands in for Google or phone sign-in until real Auth0 is wired in — for now,
-          just tell us who you are.
+          We&apos;ll text a one-time code to verify it&apos;s you — real SMS delivery isn&apos;t
+          wired up yet, so this activates right away for now.
         </Text>
-        <TextField label="First name" value={firstName} onChangeText={setFirstName} autoFocus />
+        <TextField
+          label="Mobile number"
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          autoFocus
+          placeholder="(555) 555-0100"
+        />
+        <TextField label="First name" value={firstName} onChangeText={setFirstName} />
         <TextField label="Last name" value={lastName} onChangeText={setLastName} />
-        <TextField label="Email (optional)" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-        <TextField label="Mobile number (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         {error && <Note variant="warning">{error}</Note>}
         <Button
           label={submitting ? "Activating…" : "Activate my account"}
           variant="primary"
           onPress={submit}
-          disabled={submitting || !firstName.trim()}
+          disabled={submitting || !phone.trim() || !firstName.trim()}
           loading={submitting}
         />
       </Card>
