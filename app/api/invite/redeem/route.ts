@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { redeemInvite } from "@/lib/invite";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,11 @@ const ERROR_MESSAGE: Record<string, string> = {
 // POST /api/invite/redeem — validate the invite, verify identity (mocked), create the
 // patient's account + session. See lib/invite.ts.
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`invite-redeem:${ip}`, { max: 10, windowMs: 60_000 })) {
+    return NextResponse.json({ error: "Too many attempts — wait a minute and try again." }, { status: 429 });
+  }
+
   const parsed = redeemBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 

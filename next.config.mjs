@@ -2,16 +2,19 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
-  // The API routes have no other client-origin restriction today (no auth-derived allowlist
-  // exists yet — see lib/data.ts's documented "no session exists" gaps), so this just lets
-  // the mobile app (Expo dev server / expo start --web, a different origin) reach them the
-  // same way the same-origin Next.js pages already do.
+  // Dev-only: lets `expo start --web` (a different localhost port, so a different browser
+  // origin) reach the Next dev server, same as the same-origin web pages already can. A
+  // compiled native app (the actual production APK) isn't a browser and was never subject to
+  // CORS in the first place — production has no legitimate cross-origin browser caller for
+  // this API, so no CORS headers ship there. This used to be `Access-Control-Allow-Origin: *`
+  // on every environment, which meant any website's JS could call these endpoints directly.
   async headers() {
+    if (process.env.NODE_ENV === 'production') return [];
     return [
       {
         source: '/api/:path*',
         headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Origin', value: 'http://localhost:8081' },
           { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PATCH,DELETE,OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
         ],

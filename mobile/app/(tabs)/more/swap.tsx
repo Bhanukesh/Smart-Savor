@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import Screen from "../../../components/Screen";
 import Card from "../../../components/Card";
+import ErrorState from "../../../components/ErrorState";
 import { colors, radius, spacing } from "../../../lib/theme";
 import { useSession } from "../../../lib/SessionContext";
 import { getFocusSet, getApprovedList, chooseFood } from "../../../lib/api";
@@ -11,24 +12,40 @@ export default function SwapScreen() {
   const { session } = useSession();
   const [sections, setSections] = useState<{ gap: FocusItem["gap"]; list: ApprovedList }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!session) return;
-    (async () => {
+    setLoading(true);
+    setError(false);
+    try {
       const focus = await getFocusSet(session.patientId);
       const active = focus.filter((f) => !f.excluded);
       const withLists = await Promise.all(
         active.map(async (f) => ({ gap: f.gap, list: await getApprovedList(session.patientId, f.gap.nutrient) })),
       );
       setSections(withLists);
+    } catch {
+      setError(true);
+    } finally {
       setLoading(false);
-    })();
+    }
   }, [session]);
+
+  useEffect(() => { load(); }, [load]);
 
   if (loading) {
     return (
       <Screen scroll={false}>
         <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+      </Screen>
+    );
+  }
+
+  if (error) {
+    return (
+      <Screen>
+        <ErrorState onRetry={load} />
       </Screen>
     );
   }

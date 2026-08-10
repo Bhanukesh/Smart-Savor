@@ -25,7 +25,9 @@ export default function LabsScreen() {
 
   const load = useCallback(() => {
     if (!session) return;
-    getLabReports(session.patientId).then((r) => setReports(r.labReports));
+    getLabReports(session.patientId)
+      .then((r) => setReports(r.labReports))
+      .catch(() => setError("Couldn't load your lab reports — you can still upload a new one."));
   }, [session]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));

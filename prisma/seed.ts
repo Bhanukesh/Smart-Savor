@@ -3,8 +3,16 @@
  * (frontend/lib/mock.ts), so the wired app matches the standalone FE exactly.
  */
 import { PrismaClient } from "@prisma/client";
+import { hashPassword } from "../lib/auth/password";
 
 const prisma = new PrismaClient();
+
+// Demo login for the seeded dietitian — the account has no password until this runs, so the
+// login wall would otherwise lock everyone out of the only seeded dietitian. Same treatment as
+// the app's other demo credentials: real hashing (bcrypt), but a documented, non-secret value
+// since this is a capstone demo account, not a production one.
+export const DEMO_DIETITIAN_EMAIL = "maria@metronutrition.example";
+export const DEMO_DIETITIAN_PASSWORD = "smartsavor-demo-2026";
 
 // --- Caseload filler patients ----------------------------------------------------
 // Sam is the fully-worked demo patient (receipts, logs, messages, invite, cycle history —
@@ -106,7 +114,15 @@ async function main() {
   const practice = await prisma.practice.create({ data: { name: "Metro Nutrition Clinic" } });
 
   const maria = await prisma.dietitian.create({
-    data: { practiceId: practice.id, name: "Maria, RD", credential: "RD", email: "maria@metronutrition.example" },
+    data: { practiceId: practice.id, name: "Maria, RD", credential: "RD", email: DEMO_DIETITIAN_EMAIL },
+  });
+  await prisma.user.create({
+    data: {
+      email: DEMO_DIETITIAN_EMAIL,
+      passwordHash: await hashPassword(DEMO_DIETITIAN_PASSWORD),
+      role: "dietitian",
+      dietitianId: maria.id,
+    },
   });
 
   const sam = await prisma.patient.create({

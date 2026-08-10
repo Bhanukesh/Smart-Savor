@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import Screen from "../../../../components/Screen";
@@ -6,6 +6,7 @@ import Card from "../../../../components/Card";
 import Button from "../../../../components/Button";
 import Chip from "../../../../components/Chip";
 import Note from "../../../../components/Note";
+import ErrorState from "../../../../components/ErrorState";
 import { colors, spacing } from "../../../../lib/theme";
 import { useSession } from "../../../../lib/SessionContext";
 import { getReceiptDetail, confirmReceiptLineItem } from "../../../../lib/api";
@@ -16,11 +17,15 @@ export default function ReceiptDetailScreen() {
   const { session } = useSession();
   const [receipt, setReceipt] = useState<ReceiptDetail | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!session) return;
-    getReceiptDetail(session.patientId, receiptId).then(setReceipt);
+    setLoadError(false);
+    getReceiptDetail(session.patientId, receiptId).then(setReceipt).catch(() => setLoadError(true));
   }, [session, receiptId]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function setConfirmed(item: ReceiptLineItemEntry, confirmed: boolean) {
     if (!session || !receipt) return;
@@ -33,6 +38,7 @@ export default function ReceiptDetailScreen() {
     }
   }
 
+  if (loadError && !receipt) return <Screen><ErrorState onRetry={load} /></Screen>;
   if (!receipt) return <Screen><Text style={styles.empty}>Loading…</Text></Screen>;
 
   if (receipt.parseStatus === "failed") {

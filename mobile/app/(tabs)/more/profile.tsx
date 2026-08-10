@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet, Switch } from "react-native";
 import { router } from "expo-router";
 import Screen from "../../../components/Screen";
@@ -6,6 +6,7 @@ import Card from "../../../components/Card";
 import TextField from "../../../components/TextField";
 import Button from "../../../components/Button";
 import Note from "../../../components/Note";
+import ErrorState from "../../../components/ErrorState";
 import { colors, spacing } from "../../../lib/theme";
 import { useSession } from "../../../lib/SessionContext";
 import { getPatient, updatePreferences, getWeightCheckIns, addWeightCheckIn } from "../../../lib/api";
@@ -20,22 +21,28 @@ export default function ProfileScreen() {
   const [nudgeEnabled, setNudgeEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const [checkIns, setCheckIns] = useState<WeightCheckInEntry[]>([]);
   const [weight, setWeight] = useState("");
   const [loggingWeight, setLoggingWeight] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!session) return;
-    getPatient(session.patientId).then((p) => {
-      setPatient(p);
-      setRestrictions(p.restrictions.join(", "));
-      setDislikes(p.dislikes.join(", "));
-      setBudget(p.weeklyBudgetUsd?.toString() ?? "");
-      setNudgeEnabled(p.weeklyNudgeEnabled);
-    });
-    getWeightCheckIns(session.patientId, 8).then((r) => setCheckIns(r.checkIns));
+    setLoadError(false);
+    Promise.all([getPatient(session.patientId), getWeightCheckIns(session.patientId, 8)])
+      .then(([p, r]) => {
+        setPatient(p);
+        setRestrictions(p.restrictions.join(", "));
+        setDislikes(p.dislikes.join(", "));
+        setBudget(p.weeklyBudgetUsd?.toString() ?? "");
+        setNudgeEnabled(p.weeklyNudgeEnabled);
+        setCheckIns(r.checkIns);
+      })
+      .catch(() => setLoadError(true));
   }, [session]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function savePreferences() {
     if (!session) return;
@@ -73,6 +80,7 @@ export default function ProfileScreen() {
     router.replace("/(auth)");
   }
 
+  if (loadError && !patient) return <Screen><ErrorState onRetry={load} /></Screen>;
   if (!patient) return <Screen><Text style={styles.empty}>Loading…</Text></Screen>;
 
   const latest = checkIns[checkIns.length - 1];

@@ -5,6 +5,7 @@ import Screen from "../../components/Screen";
 import Card from "../../components/Card";
 import Gauge from "../../components/Gauge";
 import Note from "../../components/Note";
+import ErrorState from "../../components/ErrorState";
 import { colors, spacing } from "../../lib/theme";
 import { useSession } from "../../lib/SessionContext";
 import { getDashboard, getPatient, getWeightCheckIns } from "../../lib/api";
@@ -16,10 +17,12 @@ export default function DashboardScreen() {
   const [gauges, setGauges] = useState<DashboardGauge[]>([]);
   const [checkIns, setCheckIns] = useState<WeightCheckInEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
     setLoading(true);
+    setError(false);
     try {
       const [p, d, w] = await Promise.all([
         getPatient(session.patientId),
@@ -29,6 +32,8 @@ export default function DashboardScreen() {
       setPatient(p);
       setGauges(d.gauges);
       setCheckIns(w.checkIns);
+    } catch {
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -42,6 +47,14 @@ export default function DashboardScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
+      </Screen>
+    );
+  }
+
+  if (error && !patient) {
+    return (
+      <Screen>
+        <ErrorState onRetry={load} />
       </Screen>
     );
   }

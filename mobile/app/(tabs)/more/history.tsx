@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Screen from "../../../components/Screen";
 import Card from "../../../components/Card";
 import Chip from "../../../components/Chip";
+import ErrorState from "../../../components/ErrorState";
 import { colors } from "../../../lib/theme";
 import { useSession } from "../../../lib/SessionContext";
 import { getCycleHistory } from "../../../lib/api";
@@ -18,11 +19,26 @@ const STATUS_LABEL: Record<string, string> = {
 export default function HistoryScreen() {
   const { session } = useSession();
   const [history, setHistory] = useState<NutrientHistory[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!session) return;
-    getCycleHistory(session.patientId).then((r) => setHistory(r.history));
+    setError(false);
+    getCycleHistory(session.patientId)
+      .then((r) => { setHistory(r.history); setLoaded(true); })
+      .catch(() => setError(true));
   }, [session]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (error && !loaded) {
+    return (
+      <Screen>
+        <ErrorState onRetry={load} />
+      </Screen>
+    );
+  }
 
   if (history.length === 0) {
     return (

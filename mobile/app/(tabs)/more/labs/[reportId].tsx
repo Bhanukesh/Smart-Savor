@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import Screen from "../../../../components/Screen";
@@ -6,6 +6,7 @@ import Card from "../../../../components/Card";
 import Button from "../../../../components/Button";
 import Chip from "../../../../components/Chip";
 import Note from "../../../../components/Note";
+import ErrorState from "../../../../components/ErrorState";
 import { colors, spacing } from "../../../../lib/theme";
 import { useSession } from "../../../../lib/SessionContext";
 import { getLabReportDetail, confirmLabFinding } from "../../../../lib/api";
@@ -16,11 +17,15 @@ export default function LabReportDetailScreen() {
   const { session } = useSession();
   const [report, setReport] = useState<LabReportDetail | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!session) return;
-    getLabReportDetail(session.patientId, reportId).then(setReport);
+    setLoadError(false);
+    getLabReportDetail(session.patientId, reportId).then(setReport).catch(() => setLoadError(true));
   }, [session, reportId]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function setConfirmed(finding: LabReportFindingEntry, confirmed: boolean) {
     if (!session || !report) return;
@@ -33,6 +38,7 @@ export default function LabReportDetailScreen() {
     }
   }
 
+  if (loadError && !report) return <Screen><ErrorState onRetry={load} /></Screen>;
   if (!report) return <Screen><Text style={styles.empty}>Loading…</Text></Screen>;
 
   if (report.parseStatus === "failed") {
