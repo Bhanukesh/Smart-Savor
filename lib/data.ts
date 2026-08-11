@@ -33,7 +33,7 @@ function serializeGap(g: {
  * by proxy.ts) passes their own dietitianId — this follows with generateInviteForPatient so
  * "add patient" and "send invite" land as one natural step, per how it was asked for. */
 export async function createPatient(
-  input: { name: string; age: number; phone?: string },
+  input: { name: string; age: number; email?: string },
   dietitianId: string,
 ): Promise<{ id: string } | null> {
   const dietitian = await prisma.dietitian.findUnique({ where: { id: dietitianId } });
@@ -44,7 +44,7 @@ export async function createPatient(
       dietitianId: dietitian.id,
       name: input.name.trim(),
       age: input.age,
-      phone: input.phone?.trim() || undefined,
+      email: input.email?.trim() || undefined,
       enrolledAt: new Date(),
     },
   });
@@ -184,7 +184,7 @@ export async function getPatient(id: string): Promise<Patient | null> {
   const p = await prisma.patient.findUnique({ where: { id }, include: { dietitian: true } });
   if (!p) return null;
   return {
-    id: p.id, name: p.name, age: p.age ?? 0, phone: p.phone ?? undefined, conditions: p.conditions,
+    id: p.id, name: p.name, age: p.age ?? 0, email: p.email ?? undefined, conditions: p.conditions,
     restrictions: p.restrictions, dislikes: p.dislikes,
     weeklyBudgetUsd: p.weeklyBudgetUsd !== null ? num(p.weeklyBudgetUsd) : undefined,
     bmi: num(p.bmi), bpSystolic: p.bpSystolic ?? 0, bpDiastolic: p.bpDiastolic ?? 0,

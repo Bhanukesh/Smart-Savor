@@ -3,12 +3,11 @@
  * gate: identity verification runs only after a valid, unexpired, unredeemed code is
  * presented, and only ever reaches redeemInvite() once it's actually happened.
  *
- * Two real verification paths exist for web (see app/api/invite/google/*,
- * app/api/invite/phone/*): Google OAuth (a real `sub` claim) or Twilio Verify OTP (a real,
- * texted-and-checked code) — both call this with already-verified identity, never a mock.
- * mobile/ still calls this directly with an unverified {phone, firstName, lastName} — a
- * documented, narrower legacy path (see mobile/lib/session.ts's comments) until it gets the
- * same real-verification treatment web just did.
+ * Web verifies identity via a real Google sign-in through a separate, unrestricted patient
+ * Clerk app (see lib/patientClerk.ts, app/invite/claim) — app/invite/claim reads that Clerk
+ * session directly and calls this with a real email/googleUserId, never a mock. mobile/ still
+ * calls this directly with an unverified {phone, firstName, lastName} — a documented, narrower
+ * legacy path (see mobile/lib/session.ts's comments) until it gets the same treatment web did.
  */
 import crypto from "crypto";
 import { prisma } from "./db";

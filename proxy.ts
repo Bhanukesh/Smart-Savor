@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { clerkMiddleware, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { findLinkedDietitianUser, claimOpenSeat } from "@/lib/auth/dietitian";
+import { PATIENT_CLERK_PUBLISHABLE_KEY, PATIENT_CLERK_SECRET_KEY } from "@/lib/patientClerk";
 
 // The patient session cookie name, duplicated from lib/auth/session.ts on purpose: that module
 // reads cookies via next/headers' cookies(), which isn't available here — Proxy reads them off
@@ -63,6 +64,24 @@ function needsPatientSession(pathname: string): boolean {
   return pathname === "/me" || pathname.startsWith("/me/");
 }
 
+// Two separate Clerk applications share this one middleware: the dietitian app (default env
+// vars, CLERK_SECRET_KEY / NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY — Restricted mode) everywhere
+// except /invite/* and /api/invite/* (pages and their API routes), which resolve to the
+// patient app instead (lib/patientClerk.ts, unrestricted — patients are already gated by
+// their invite code, not by Clerk). This is Clerk's own documented multi-tenant pattern (a
+// key-resolver as clerkMiddleware's second argument), not a workaround — see proxy.ts's PR
+// description for the doc link.
+function resolveClerkKeys(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const isInvite = pathname.startsWith("/invite") || pathname.startsWith("/api/invite");
+  if (isInvite && PATIENT_CLERK_PUBLISHABLE_KEY && PATIENT_CLERK_SECRET_KEY) {
+    return { publishableKey: PATIENT_CLERK_PUBLISHABLE_KEY, secretKey: PATIENT_CLERK_SECRET_KEY };
+  }
+  // The dietitian app's own keys, explicit rather than implicit — this callback must always
+  // return a real options object (its type doesn't allow "just use the ambient env vars").
+  return { publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!, secretKey: process.env.CLERK_SECRET_KEY! };
+}
+
 export default clerkMiddleware(async (auth, request: NextRequest) => {
   const { pathname } = request.nextUrl;
 
@@ -106,7 +125,7 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
     return NextResponse.json({ error: "No dietitian account is linked to this sign-in." }, { status: 403 });
   }
   return NextResponse.redirect(new URL("/login/dietitian/no-access", request.url));
-});
+}, resolveClerkKeys);
 
 // Only excludes genuine static assets — everything else (including /invite, /login, /me,
 // /api/health, etc.) still reaches needsDietitianSession() above, which is the real source of

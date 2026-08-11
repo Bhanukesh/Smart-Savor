@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getInviteStatus, generateInviteForPatient } from "@/lib/invite";
 import { getPatient } from "@/lib/data";
 import { isUuid } from "@/lib/db";
-import { sendInviteSms } from "@/lib/sms";
+import { invitePatientByEmail } from "@/lib/patientClerk";
 
 export const dynamic = "force-dynamic";
 
@@ -15,21 +15,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json(status);
 }
 
-// POST /api/patients/:id/invite — "Send invite": mint (or regenerate) a code, re-texting it
-// if a phone is on file (same as the initial "Add patient" send).
+// POST /api/patients/:id/invite — "Send invite": mint (or regenerate) a code, re-sending the
+// Clerk invitation email if an address is on file (same as the initial "Add patient" send).
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!isUuid(id)) return NextResponse.json({ error: "invalid patient id" }, { status: 400 });
   const invite = await generateInviteForPatient(id);
   if (!invite) return NextResponse.json({ error: "patient not found or has no assigned dietitian" }, { status: 404 });
 
-  let smsSent = false;
+  let emailSent = false;
   const patient = await getPatient(id);
-  if (patient?.phone) {
-    const inviteLink = new URL(`/invite/signup?code=${invite.code}`, req.url).toString();
-    const result = await sendInviteSms(patient.phone, patient.name.split(" ")[0], patient.dietitianName, inviteLink);
-    smsSent = result.ok;
+  if (patient?.email) {
+    const redirectUrl = new URL(`/invite/signup?code=${invite.code}`, req.url).toString();
+    const result = await invitePatientByEmail(patient.email, redirectUrl, { inviteCode: invite.code });
+    emailSent = result.ok;
   }
 
-  return NextResponse.json({ smsSent, ...invite });
+  return NextResponse.json({ emailSent, ...invite });
 }

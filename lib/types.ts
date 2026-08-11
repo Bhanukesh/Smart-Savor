@@ -19,9 +19,9 @@ export interface Patient {
   id: string;
   name: string;
   age: number;
-  /** Dietitian-entered delivery number for invite SMS (lib/sms.ts) — distinct from the
-   * patient's own, self-verified signup phone once they have an account. */
-  phone?: string;
+  /** Dietitian-entered delivery address for the invite email (lib/patientClerk.ts) — distinct
+   * from the patient's own email on User once they've actually signed up. */
+  email?: string;
   conditions: string[];
   /** dietary preferences: restrictions (e.g. "vegetarian"), dislikes, weekly grocery budget */
   restrictions: string[];
