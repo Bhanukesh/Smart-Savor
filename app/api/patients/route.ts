@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { listPatients, createPatient } from "@/lib/data";
 import { generateInviteForPatient } from "@/lib/invite";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionDietitian } from "@/lib/auth/dietitian";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +22,11 @@ export async function POST(req: Request) {
   const parsed = createBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  // proxy.ts already requires a valid dietitian session to reach this route.
-  const sessionUser = await getSessionUser();
-  if (!sessionUser?.dietitianId) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  // proxy.ts already requires a valid, linked dietitian session to reach this route.
+  const dietitian = await getSessionDietitian();
+  if (!dietitian) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
-  const patient = await createPatient(parsed.data, sessionUser.dietitianId);
+  const patient = await createPatient(parsed.data, dietitian.dietitianId);
   if (!patient) return NextResponse.json({ error: "no dietitian/practice on file to assign this patient to" }, { status: 404 });
 
   const invite = await generateInviteForPatient(patient.id);

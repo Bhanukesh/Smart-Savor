@@ -3,20 +3,24 @@
  * (frontend/lib/mock.ts), so the wired app matches the standalone FE exactly.
  */
 import { PrismaClient } from "@prisma/client";
-import { hashPassword } from "../lib/auth/password";
 
 const prisma = new PrismaClient();
 
-// Demo login for the seeded dietitian — the account has no password until this runs, so the
-// login wall would otherwise lock everyone out of the only seeded dietitian. Required from the
-// environment rather than hardcoded here, same as every other secret in this repo (e.g.
-// ANTHROPIC_API_KEY) — set DEMO_DIETITIAN_PASSWORD in .env locally.
+// Dietitian auth is Clerk-managed now (see lib/clerk.ts, app/api/webhooks/clerk/route.ts) —
+// this seed can't create a Clerk account, so it creates an "open seat": a User row with
+// role=dietitian, dietitianId already pointed at "Maria, RD", but clerkUserId left null. The
+// webhook claims it (sets clerkUserId) the first time this exact email signs in via Clerk,
+// same mechanism a colleague invited through /team uses, just pre-provisioned instead of
+// created on the fly. Required from the environment (a real Google/Microsoft-backed email,
+// not a fake placeholder — Clerk needs a real account to authenticate against) rather than
+// hardcoded here, same as every other secret in this repo — set DIETITIAN_BOOTSTRAP_EMAIL in
+// .env locally.
 export const DEMO_DIETITIAN_EMAIL = "maria@metronutrition.example";
-const rawDemoPassword = process.env.DEMO_DIETITIAN_PASSWORD;
-if (!rawDemoPassword) {
-  throw new Error("DEMO_DIETITIAN_PASSWORD is not set — add it to .env before running the seed.");
+const rawBootstrapEmail = process.env.DIETITIAN_BOOTSTRAP_EMAIL;
+if (!rawBootstrapEmail) {
+  throw new Error("DIETITIAN_BOOTSTRAP_EMAIL is not set — add it to .env before running the seed.");
 }
-export const DEMO_DIETITIAN_PASSWORD: string = rawDemoPassword;
+export const DIETITIAN_BOOTSTRAP_EMAIL: string = rawBootstrapEmail;
 
 // --- Caseload filler patients ----------------------------------------------------
 // Sam is the fully-worked demo patient (receipts, logs, messages, invite, cycle history —
@@ -122,10 +126,10 @@ async function main() {
   });
   await prisma.user.create({
     data: {
-      email: DEMO_DIETITIAN_EMAIL,
-      passwordHash: await hashPassword(DEMO_DIETITIAN_PASSWORD),
+      email: DIETITIAN_BOOTSTRAP_EMAIL,
       role: "dietitian",
       dietitianId: maria.id,
+      // clerkUserId stays null — an open seat, claimed on first Clerk sign-in.
     },
   });
 

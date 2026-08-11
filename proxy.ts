@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { clerkMiddleware, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { findLinkedDietitianUser, claimOpenSeat } from "@/lib/auth/dietitian";
 
-// The session cookie name, duplicated from lib/auth/session.ts on purpose: that module reads
-// cookies via next/headers' cookies(), which isn't available here — Proxy reads them off the
-// request directly (request.cookies). Runs on the Node.js runtime by default (Next 16), so a
-// real Prisma lookup is fine here, not just an Edge-safe cookie-presence check.
+// The patient session cookie name, duplicated from lib/auth/session.ts on purpose: that module
+// reads cookies via next/headers' cookies(), which isn't available here — Proxy reads them off
+// the request directly (request.cookies). Runs on the Node.js runtime by default (Next 16), so
+// a real Prisma lookup is fine here, not just an Edge-safe cookie-presence check. Dietitian
+// auth is Clerk-managed (see lib/auth/dietitian.ts) — this cookie is patient-only now.
 const COOKIE_NAME = "smartsavor_session";
 
 // API paths that are legitimately called by a *patient* session (web /me/* and the mobile
@@ -34,8 +37,14 @@ const PATIENT_SAFE_PATTERNS: RegExp[] = [
 // different rule — can't express this as a single pattern.
 const BARE_PATIENT_ID = /^\/api\/patients\/[^/]+$/;
 
+// Public by construction — Clerk calls this with no session, and the webhook signature (not a
+// cookie or a Clerk session) is what actually authenticates it. Also /team/join... no such
+// route exists (invites are by email now, not a link a stranger could stumble onto), so
+// nothing else needs a public carve-out here.
 function needsDietitianSession(pathname: string, method: string): boolean {
   if (pathname === "/" || pathname.startsWith("/patients/")) return true;
+  if (pathname === "/team") return true;
+  if (pathname.startsWith("/api/team/invites")) return true;
 
   const isApiPatientsOrGrocery =
     pathname.startsWith("/api/patients") || pathname.startsWith("/api/grocery-items");
@@ -54,7 +63,7 @@ function needsPatientSession(pathname: string): boolean {
   return pathname === "/me" || pathname.startsWith("/me/");
 }
 
-export default async function proxy(request: NextRequest) {
+export default clerkMiddleware(async (auth, request: NextRequest) => {
   const { pathname } = request.nextUrl;
 
   if (needsPatientSession(pathname)) {
@@ -69,26 +78,43 @@ export default async function proxy(request: NextRequest) {
 
   if (!needsDietitianSession(pathname, request.method)) return NextResponse.next();
 
-  const token = request.cookies.get(COOKIE_NAME)?.value;
-  const session = token
-    ? await prisma.session.findUnique({ where: { token }, include: { user: true } })
-    : null;
-  const valid = session && session.expiresAt > new Date() && session.user.role === "dietitian";
+  const { isAuthenticated, userId } = await auth();
+  if (!isAuthenticated || !userId) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+    }
+    const returnTo = encodeURIComponent(pathname);
+    return NextResponse.redirect(new URL(`/login/dietitian?returnTo=${returnTo}`, request.url));
+  }
 
-  if (valid) return NextResponse.next();
+  // A valid Clerk session only proves *authentication* — Restricted mode keeps sign-up
+  // invite-only, but this is the app-side check that it's actually linked to a dietitian
+  // seat, re-verified every request the same way the old session-row check was (no cached
+  // claim to trust). Fast path first (no Clerk API call); the slow path (fetch email, try to
+  // claim an open seat) only runs once, on a brand-new account's first request.
+  let dietitianUser = await findLinkedDietitianUser(userId);
+  if (!dietitianUser) {
+    const client = await clerkClient();
+    const clerkUser = await client.users.getUser(userId);
+    const email = clerkUser.primaryEmailAddress?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress;
+    if (email) dietitianUser = await claimOpenSeat(userId, email);
+  }
+
+  if (dietitianUser) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+    return NextResponse.json({ error: "No dietitian account is linked to this sign-in." }, { status: 403 });
   }
-  const loginUrl = new URL("/login/dietitian", request.url);
-  return NextResponse.redirect(loginUrl);
-}
+  return NextResponse.redirect(new URL("/login/dietitian/no-access", request.url));
+});
 
 // Only excludes genuine static assets — everything else (including /invite, /login, /me,
 // /api/health, etc.) still reaches needsDietitianSession() above, which is the real source of
 // truth and already returns false (no-op, no DB call) for all of them. Narrower exclusions
 // here would just be a performance micro-optimization with a real risk of a path-prefix bug
 // (e.g. a future route that happens to start with the same letters as an excluded segment).
+// Also broad enough to satisfy Clerk's own requirement that its middleware run on effectively
+// every route (session handshake/refresh), not just ones we explicitly gate.
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon\\.ico|phosphor/).*)"],
 };

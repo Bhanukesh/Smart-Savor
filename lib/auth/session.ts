@@ -1,13 +1,12 @@
 /**
- * Session issuance for the invite-redemption flow. An opaque random token, stored server-
- * side in the `sessions` table and referenced by an httpOnly cookie — the same shape as the
- * dietitian session (er-design.md §Part 1 Decision 2), so both sides stay uniform once
- * dietitian auth lands.
+ * Session issuance for the patient invite-redemption flow. An opaque random token, stored
+ * server-side in the `sessions` table and referenced by an httpOnly cookie (er-design.md
+ * §Part 1 Decision 2). Dietitian auth moved to Clerk (see lib/clerk.ts) — this module and its
+ * `sessions` table are patient-only now; a dietitian User row never gets a Session here.
  */
 import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
-import { verifyPassword } from "./password";
 import type { UserRole } from "@prisma/client";
 
 const COOKIE_NAME = "smartsavor_session";
@@ -54,26 +53,3 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 }
 
 export { COOKIE_NAME };
-
-export type DietitianLoginResult =
-  | { ok: true; dietitianName: string }
-  | { ok: false; error: "invalid_credentials" };
-
-/** Dietitian login — /login/dietitian's only entry point into a session. Deliberately generic
- * on failure (no "no such email" vs "wrong password" distinction) so this can't be used to
- * enumerate registered emails. */
-export async function loginDietitian(email: string, password: string): Promise<DietitianLoginResult> {
-  const user = await prisma.user.findUnique({
-    where: { email: email.trim().toLowerCase() },
-    include: { dietitian: true },
-  });
-  if (!user || user.role !== "dietitian" || !user.passwordHash || !user.dietitian) {
-    return { ok: false, error: "invalid_credentials" };
-  }
-  const valid = await verifyPassword(password, user.passwordHash);
-  if (!valid) return { ok: false, error: "invalid_credentials" };
-
-  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-  await createSession(user.id);
-  return { ok: true, dietitianName: user.dietitian.name };
-}

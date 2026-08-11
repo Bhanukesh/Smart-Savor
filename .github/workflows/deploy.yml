@@ -34,8 +34,11 @@ jobs:
 
       - name: Build and push image (in ACR)
         run: |
+          # Clerk's publishable key isn't secret (it's designed to ship in the browser bundle),
+          # so it's versioned here like any other build-time config, not a GitHub secret.
           az acr build --registry ${{ vars.ACR_NAME }} \
-            --image ${{ vars.STUDENT }}/web:${{ github.sha }} .
+            --image ${{ vars.STUDENT }}/web:${{ github.sha }} \
+            --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_Ym9zcy1saW9uZXNzLTk5LmNsZXJrLmFjY291bnRzLmRldiQ .
 
       - name: Sync app config
         run: |
@@ -49,21 +52,34 @@ jobs:
             --name ca-${{ vars.STUDENT }} \
             --set-env-vars ANTHROPIC_API_KEY=secretref:anthropic-api-key
 
-          # Optional: only bootstraps the seeded dietitian's login (see
-          # prisma/ensure-dietitian-login.cjs). Guarded so a missing/not-yet-added secret
-          # degrades to "login isn't bootstrapped this run" — it must never fail this step
-          # and block the real deploy below, the way it did the first time this shipped.
-          if [ -n "${{ secrets.DEMO_DIETITIAN_PASSWORD }}" ]; then
+          # Dietitian auth (Clerk). Guarded the same way the old DEMO_DIETITIAN_PASSWORD sync
+          # was: a missing secret must degrade to "dietitian sign-in is broken this run," never
+          # block this step and take the whole deploy down with it (that's the exact failure
+          # mode PR #13 fixed for the old password bootstrap — same lesson applies here).
+          if [ -n "${{ secrets.CLERK_SECRET_KEY }}" ]; then
             az containerapp secret set \
               --resource-group rg-students-platform \
               --name ca-${{ vars.STUDENT }} \
-              --secrets demo-dietitian-password="${{ secrets.DEMO_DIETITIAN_PASSWORD }}"
+              --secrets clerk-secret-key="${{ secrets.CLERK_SECRET_KEY }}"
             az containerapp update \
               --resource-group rg-students-platform \
               --name ca-${{ vars.STUDENT }} \
-              --set-env-vars DEMO_DIETITIAN_PASSWORD=secretref:demo-dietitian-password
+              --set-env-vars CLERK_SECRET_KEY=secretref:clerk-secret-key
           else
-            echo "::warning::DEMO_DIETITIAN_PASSWORD secret not set — skipping (dietitian login bootstrap won't run this deploy)."
+            echo "::warning::CLERK_SECRET_KEY secret not set — dietitian sign-in will fail this deploy."
+          fi
+
+          if [ -n "${{ secrets.CLERK_WEBHOOK_SIGNING_SECRET }}" ]; then
+            az containerapp secret set \
+              --resource-group rg-students-platform \
+              --name ca-${{ vars.STUDENT }} \
+              --secrets clerk-webhook-signing-secret="${{ secrets.CLERK_WEBHOOK_SIGNING_SECRET }}"
+            az containerapp update \
+              --resource-group rg-students-platform \
+              --name ca-${{ vars.STUDENT }} \
+              --set-env-vars CLERK_WEBHOOK_SIGNING_SECRET=secretref:clerk-webhook-signing-secret
+          else
+            echo "::warning::CLERK_WEBHOOK_SIGNING_SECRET secret not set — new dietitian sign-ups won't get linked to an account this deploy."
           fi
 
       - name: Deploy to Container App

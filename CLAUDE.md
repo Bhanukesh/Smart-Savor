@@ -30,24 +30,38 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
 - **Photo or PDF uploads** (receipts, lab reports): the parser branches on `mediaType` —
   `application/pdf` sends an Anthropic `document` content block, everything else sends an
   `image` block. See `lib/receiptParser.ts` / `lib/labReportParser.ts`.
-- **Auth is split, real on the session/route-guard side, mocked on identity verification**:
-  patients go through invite-code redemption (`lib/invite.ts`) then a session
-  (`lib/auth/session.ts`, real — opaque token + httpOnly cookie). Identity verification
-  (`lib/auth/verifyIdentity.ts`) is a stand-in for Auth0 and accepts whatever's submitted — say
-  so plainly if this comes up, don't imply it's wired. Dietitians log in for real at
-  `/login/dietitian` (email + bcrypt-hashed password, `lib/auth/session.ts`'s
-  `loginDietitian()`), rate-limited via `lib/rateLimit.ts`. `proxy.ts` (Next 16's renamed,
-  Node.js-runtime middleware) gates the dietitian console pages (`/`, `/patients/**`) and every
-  dietitian-exclusive API action, and separately requires a real patient session for `/me/**`
-  — see its own comments for the full patient-safe-vs-gated classification. Web pages resolve
-  *which* patient from that session (`getSessionPatient()` in `lib/data.ts`), not a guess.
-  The shared `/api/patients/[id]/*` routes (called by both `/me/*` and `mobile/`) still don't
-  verify the session belongs to that `:id` — a documented, accepted gap, since closing it means
-  giving `mobile/` a real bearer token first (it has no cookie jar today; see
-  `mobile/lib/session.ts`'s comments). There is deliberately **no public patient self-signup**
-  — invite code first, always.
-  The demo dietitian login is `maria@metronutrition.example` / see `prisma/seed.ts` for the
-  password — a documented demo credential, reset on every `db:seed`, not a production secret.
+- **Auth is a three-way split**: real Clerk-managed auth for dietitians, a real custom
+  session for patients, mocked identity verification underneath that patient session.
+  - **Dietitians** sign in via **Clerk** (`@clerk/nextjs`) at `/login/dietitian` —
+    Google/Microsoft only, no password, no email/password connection enabled. The Clerk
+    tenant is set to **Restricted mode**: nobody can create a Clerk account at all without an
+    invitation, so "who can sign up" is enforced by Clerk itself, not app code. A Clerk
+    session alone still isn't sufficient, though — `lib/auth/dietitian.ts` is the app-side
+    half, resolving a Clerk identity to an actual `Dietitian`/`User` row two ways: a
+    pre-provisioned "open seat" (`prisma/seed.ts`'s bootstrap dietitian, claimed by email on
+    first sign-in) or a colleague invited from `/team` (`createColleagueInvitation()`, which
+    stamps the target `Dietitian.id` onto the Clerk invitation's `publicMetadata`; the webhook
+    at `app/api/webhooks/clerk/route.ts` creates the `User` row once they actually accept).
+    A Clerk session with no matching row lands on `/login/dietitian/no-access`, not the app.
+  - **Patients** go through invite-code redemption (`lib/invite.ts`) then a session
+    (`lib/auth/session.ts`, real — opaque token + httpOnly cookie), unrelated to Clerk
+    entirely. Identity verification (`lib/auth/verifyIdentity.ts`) is a stand-in for Auth0 and
+    accepts whatever's submitted — say so plainly if this comes up, don't imply it's wired.
+  - `proxy.ts` (Next 16's renamed, Node.js-runtime middleware) gates the dietitian console
+    pages (`/`, `/patients/**`, `/team`) and every dietitian-exclusive API action against a
+    linked Clerk identity, and separately requires a real patient session for `/me/**` — see
+    its own comments for the full patient-safe-vs-gated classification. Web pages resolve
+    *which* patient/dietitian from their respective session (`getSessionPatient()` in
+    `lib/data.ts`, `getSessionDietitian()` in `lib/auth/dietitian.ts`), never a guess.
+  - The shared `/api/patients/[id]/*` routes (called by both `/me/*` and `mobile/`) still
+    don't verify a *patient* session belongs to that `:id` — a documented, accepted gap, since
+    closing it means giving `mobile/` a real bearer token first (it has no cookie jar today;
+    see `mobile/lib/session.ts`'s comments). There is deliberately **no public patient
+    self-signup** — invite code first, always.
+  - The demo dietitian's sign-in identity is whatever real Google/Microsoft email
+    `DIETITIAN_BOOTSTRAP_EMAIL` is set to (see `.env`/deploy secrets) — `prisma/seed.ts` links
+    that email to the seeded "Maria, RD" practice data on first Clerk sign-in. It has to be a
+    real account Clerk can authenticate against, not a placeholder.
 - **Clinical authority stays human by design**: extraction code transcribes what's on a
   document; it never computes a target, severity, or "gap" — that's deterministic TypeScript
   (e.g. `confirmLabFinding` in `lib/data.ts`), not something trusted to a model call.

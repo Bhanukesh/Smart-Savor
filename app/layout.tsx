@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,14 +10,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        {/* Phosphor icons — self-hosted from /public/phosphor (no CDN). regular / bold / fill. */}
-        <link rel="stylesheet" href="/phosphor/regular/style.css" />
-        <link rel="stylesheet" href="/phosphor/bold/style.css" />
-        <link rel="stylesheet" href="/phosphor/fill/style.css" />
-      </head>
-      <body>{children}</body>
-    </html>
+    <ClerkProvider afterSignOutUrl="/login/dietitian">
+      <html lang="en">
+        <head>
+          {/* Phosphor icons — self-hosted from /public/phosphor (no CDN). regular / bold / fill. */}
+          <link rel="stylesheet" href="/phosphor/regular/style.css" />
+          <link rel="stylesheet" href="/phosphor/bold/style.css" />
+          <link rel="stylesheet" href="/phosphor/fill/style.css" />
+        </head>
+        <body>{children}</body>
+      </html>
+    </ClerkProvider>
   );
 }

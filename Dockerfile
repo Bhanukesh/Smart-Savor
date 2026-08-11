@@ -20,6 +20,10 @@ RUN apk add --no-cache openssl
 COPY package*.json ./
 RUN npm ci --ignore-scripts
 COPY . .
+# Clerk's publishable key is inlined into the client JS bundle at build time — a runtime env
+# var on the Container App does nothing for it (see .claude/skills/add-env-var Route C).
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 RUN npx prisma generate && npm run build
 
 # ---- runtime stage ----
@@ -43,25 +47,6 @@ COPY --from=build /src/public ./public
 COPY --from=build /src/prisma ./prisma
 COPY --from=build /src/node_modules/prisma ./node_modules/prisma
 COPY --from=build /src/node_modules/@prisma ./node_modules/@prisma
-# prisma/ensure-dietitian-login.cjs is a plain, un-bundled script — unlike the app's own login
-# route, Next's standalone trace never gives it a real bcryptjs to require(). The app's route
-# handler works fine without this because bcryptjs gets inlined directly into its compiled
-# bundle; this script does a raw require() of the actual package, so it needs the real thing
-# present. Pure JS, no native bindings, so a plain copy is enough (this is exactly why bcryptjs
-# was chosen over node-bcrypt in the first place).
-COPY --from=build /src/node_modules/bcryptjs ./node_modules/bcryptjs
 
 EXPOSE 3000
-# ensure-dietitian-login.cjs is intentionally permanent here, unlike the old one-time
-# seed-once.cjs — it only ever creates a missing login, never touches existing data, so it's
-# safe to run on every startup. Needed because the dietitian login wall shipped after
-# production's one-time seed already ran (see that file's comment for the full story).
-#
-# Run with `&`, not `&&`: it's backgrounded, not chained. The script's own non-fatal error
-# handling only protects against it *failing fast* — it does nothing if the process instead
-# *hangs* (e.g. a slow/stuck DB connection), and a hang in an && chain means node server.js
-# never runs at all, so Container Apps' readiness probe never gets a response and the whole
-# revision fails to activate ("Deployment Progress Deadline Exceeded. 0/1 replicas ready.") —
-# which is exactly what happened the first time this shipped. Backgrounding it means the
-# server starts immediately regardless of what the bootstrap script does.
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && (node prisma/ensure-dietitian-login.cjs &) && node server.js"]
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node server.js"]
