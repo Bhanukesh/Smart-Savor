@@ -43,6 +43,13 @@ COPY --from=build /src/public ./public
 COPY --from=build /src/prisma ./prisma
 COPY --from=build /src/node_modules/prisma ./node_modules/prisma
 COPY --from=build /src/node_modules/@prisma ./node_modules/@prisma
+# prisma/ensure-dietitian-login.cjs is a plain, un-bundled script — unlike the app's own login
+# route, Next's standalone trace never gives it a real bcryptjs to require(). The app's route
+# handler works fine without this because bcryptjs gets inlined directly into its compiled
+# bundle; this script does a raw require() of the actual package, so it needs the real thing
+# present. Pure JS, no native bindings, so a plain copy is enough (this is exactly why bcryptjs
+# was chosen over node-bcrypt in the first place).
+COPY --from=build /src/node_modules/bcryptjs ./node_modules/bcryptjs
 
 EXPOSE 3000
 # ensure-dietitian-login.cjs is intentionally permanent here, unlike the old one-time
