@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import TextField from "../../../components/TextField";
 import Button from "../../../components/Button";
+import ErrorState from "../../../components/ErrorState";
 import { colors, spacing, radius } from "../../../lib/theme";
 import { useSession } from "../../../lib/SessionContext";
 import { getMessages, sendMessage } from "../../../lib/api";
@@ -13,12 +14,19 @@ export default function MessagesScreen() {
   const [messages, setMessages] = useState<MessageEntry[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!session) return;
-    getMessages(session.patientId).then((r) => setMessages(r.messages));
+    setLoadError(false);
+    getMessages(session.patientId)
+      .then((r) => { setMessages(r.messages); setLoaded(true); })
+      .catch(() => setLoadError(true));
   }, [session]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function send() {
     const body = draft.trim();
@@ -40,7 +48,9 @@ export default function MessagesScreen() {
     <SafeAreaView style={styles.safe} edges={["bottom", "left", "right"]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
         <ScrollView ref={scrollRef} style={styles.list} contentContainerStyle={styles.listContent}>
-          {messages.length === 0 ? (
+          {loadError && !loaded ? (
+            <ErrorState onRetry={load} />
+          ) : messages.length === 0 ? (
             <Text style={styles.empty}>No messages yet — say hello.</Text>
           ) : (
             messages.map((m) => (

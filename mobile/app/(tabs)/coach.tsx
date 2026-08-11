@@ -19,16 +19,23 @@ export default function CoachScreen() {
 
   useEffect(() => {
     if (!session) return;
-    getPatient(session.patientId).then((p) => {
-      const name = p.name.split(" ")[0];
-      setFirstName(name);
-      setMessages([
-        {
-          role: "assistant",
-          content: `Hi ${name} — I'm your food coach. Ask me about your focus areas this cycle, or tell me what you'd like to eat and I'll find it on your approved list.`,
-        },
-      ]);
-    });
+    getPatient(session.patientId)
+      .then((p) => {
+        const name = p.name.split(" ")[0];
+        setFirstName(name);
+        setMessages([
+          {
+            role: "assistant",
+            content: `Hi ${name} — I'm your food coach. Ask me about your focus areas this cycle, or tell me what you'd like to eat and I'll find it on your approved list.`,
+          },
+        ]);
+      })
+      .catch(() => {
+        // Couldn't load the name — greet without it rather than leaving the chat empty.
+        setMessages([
+          { role: "assistant", content: "Hi — I'm your food coach. Ask me about your focus areas this cycle, or tell me what you'd like to eat and I'll find it on your approved list." },
+        ]);
+      });
   }, [session]);
 
   async function send() {

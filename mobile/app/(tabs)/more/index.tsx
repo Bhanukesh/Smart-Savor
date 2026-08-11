@@ -24,9 +24,12 @@ export default function MoreHubScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!session) return;
-      getMessages(session.patientId).then(({ messages }) => {
-        setUnread(messages.filter((m) => m.senderRole === "dietitian" && !m.readAt).length);
-      });
+      getMessages(session.patientId)
+        .then(({ messages }) => {
+          setUnread(messages.filter((m) => m.senderRole === "dietitian" && !m.readAt).length);
+        })
+        // Non-critical: this only feeds a badge count, the rest of the screen works fine without it.
+        .catch(() => {});
     }, [session]),
   );
 

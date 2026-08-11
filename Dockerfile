@@ -45,4 +45,8 @@ COPY --from=build /src/node_modules/prisma ./node_modules/prisma
 COPY --from=build /src/node_modules/@prisma ./node_modules/@prisma
 
 EXPOSE 3000
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node server.js"]
+# ensure-dietitian-login.cjs is intentionally permanent here, unlike the old one-time
+# seed-once.cjs — it only ever creates a missing login, never touches existing data, so it's
+# safe to run on every startup. Needed because the dietitian login wall shipped after
+# production's one-time seed already ran (see that file's comment for the full story).
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node prisma/ensure-dietitian-login.cjs && node server.js"]

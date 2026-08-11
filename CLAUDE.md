@@ -30,13 +30,20 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
 - **Photo or PDF uploads** (receipts, lab reports): the parser branches on `mediaType` —
   `application/pdf` sends an Anthropic `document` content block, everything else sends an
   `image` block. See `lib/receiptParser.ts` / `lib/labReportParser.ts`.
-- **Auth is split and partially mocked**: patients go through invite-code redemption
-  (`lib/invite.ts`) then a session (`lib/auth/session.ts`, real — opaque token + httpOnly
-  cookie). Identity verification (`lib/auth/verifyIdentity.ts`) is a stand-in for Auth0 and
-  accepts whatever's submitted — say so plainly if this comes up, don't imply it's wired.
-  Dietitians currently have **no login wall** on the console routes.
+- **Auth is split, real on the session/route-guard side, mocked on identity verification**:
+  patients go through invite-code redemption (`lib/invite.ts`) then a session
+  (`lib/auth/session.ts`, real — opaque token + httpOnly cookie). Identity verification
+  (`lib/auth/verifyIdentity.ts`) is a stand-in for Auth0 and accepts whatever's submitted — say
+  so plainly if this comes up, don't imply it's wired. Dietitians log in for real at
+  `/login/dietitian` (email + bcrypt-hashed password, `lib/auth/session.ts`'s
+  `loginDietitian()`), rate-limited via `lib/rateLimit.ts`. `proxy.ts` (Next 16's renamed,
+  Node.js-runtime middleware) gates the dietitian console pages (`/`, `/patients/**`) and every
+  dietitian-exclusive API action — see its own comments for the full patient-safe-vs-gated
+  classification, since several `/api/patients/[id]/*` routes are genuinely shared between
+  both sides (patients call some of them directly, both from `/me/*` and `mobile/`).
   There is deliberately **no public patient self-signup** — invite code first, always.
-  The dietitian side also has no `console.log` middleware or session guard yet.
+  The demo dietitian login is `maria@metronutrition.example` / see `prisma/seed.ts` for the
+  password — a documented demo credential, reset on every `db:seed`, not a production secret.
 - **Clinical authority stays human by design**: extraction code transcribes what's on a
   document; it never computes a target, severity, or "gap" — that's deterministic TypeScript
   (e.g. `confirmLabFinding` in `lib/data.ts`), not something trusted to a model call.

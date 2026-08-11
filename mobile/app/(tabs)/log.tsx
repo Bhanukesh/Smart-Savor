@@ -22,8 +22,13 @@ export default function LogScreen() {
 
   const load = useCallback(async () => {
     if (!session) return;
-    const { events } = await getRecentConsumption(session.patientId, 14);
-    setEntries(events);
+    try {
+      const { events } = await getRecentConsumption(session.patientId, 14);
+      setEntries(events);
+    } catch {
+      // Non-blocking: logging a new entry still works even if the recent list fails to load.
+      setError("Couldn't load your recent entries — you can still log a new one.");
+    }
   }, [session]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));

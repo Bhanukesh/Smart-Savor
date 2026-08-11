@@ -27,7 +27,9 @@ export default function ReceiptsScreen() {
 
   const load = useCallback(() => {
     if (!session) return;
-    getReceipts(session.patientId).then((r) => setReceipts(r.receipts));
+    getReceipts(session.patientId)
+      .then((r) => setReceipts(r.receipts))
+      .catch(() => setError("Couldn't load your receipts — you can still upload a new one."));
   }, [session]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
