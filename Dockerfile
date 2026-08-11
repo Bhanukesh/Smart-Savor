@@ -49,4 +49,12 @@ EXPOSE 3000
 # seed-once.cjs — it only ever creates a missing login, never touches existing data, so it's
 # safe to run on every startup. Needed because the dietitian login wall shipped after
 # production's one-time seed already ran (see that file's comment for the full story).
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node prisma/ensure-dietitian-login.cjs && node server.js"]
+#
+# Run with `&`, not `&&`: it's backgrounded, not chained. The script's own non-fatal error
+# handling only protects against it *failing fast* — it does nothing if the process instead
+# *hangs* (e.g. a slow/stuck DB connection), and a hang in an && chain means node server.js
+# never runs at all, so Container Apps' readiness probe never gets a response and the whole
+# revision fails to activate ("Deployment Progress Deadline Exceeded. 0/1 replicas ready.") —
+# which is exactly what happened the first time this shipped. Backgrounding it means the
+# server starts immediately regardless of what the bootstrap script does.
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && (node prisma/ensure-dietitian-login.cjs &) && node server.js"]
