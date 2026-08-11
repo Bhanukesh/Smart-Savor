@@ -39,16 +39,32 @@ jobs:
 
       - name: Sync app config
         run: |
+          # Required: the app needs this to do anything with Claude at all.
           az containerapp secret set \
             --resource-group rg-students-platform \
             --name ca-${{ vars.STUDENT }} \
-            --secrets anthropic-api-key="${{ secrets.ANTHROPIC_API_KEY }}" \
-              demo-dietitian-password="${{ secrets.DEMO_DIETITIAN_PASSWORD }}"
+            --secrets anthropic-api-key="${{ secrets.ANTHROPIC_API_KEY }}"
           az containerapp update \
             --resource-group rg-students-platform \
             --name ca-${{ vars.STUDENT }} \
-            --set-env-vars ANTHROPIC_API_KEY=secretref:anthropic-api-key \
-              DEMO_DIETITIAN_PASSWORD=secretref:demo-dietitian-password
+            --set-env-vars ANTHROPIC_API_KEY=secretref:anthropic-api-key
+
+          # Optional: only bootstraps the seeded dietitian's login (see
+          # prisma/ensure-dietitian-login.cjs). Guarded so a missing/not-yet-added secret
+          # degrades to "login isn't bootstrapped this run" — it must never fail this step
+          # and block the real deploy below, the way it did the first time this shipped.
+          if [ -n "${{ secrets.DEMO_DIETITIAN_PASSWORD }}" ]; then
+            az containerapp secret set \
+              --resource-group rg-students-platform \
+              --name ca-${{ vars.STUDENT }} \
+              --secrets demo-dietitian-password="${{ secrets.DEMO_DIETITIAN_PASSWORD }}"
+            az containerapp update \
+              --resource-group rg-students-platform \
+              --name ca-${{ vars.STUDENT }} \
+              --set-env-vars DEMO_DIETITIAN_PASSWORD=secretref:demo-dietitian-password
+          else
+            echo "::warning::DEMO_DIETITIAN_PASSWORD secret not set — skipping (dietitian login bootstrap won't run this deploy)."
+          fi
 
       - name: Deploy to Container App
         run: |
