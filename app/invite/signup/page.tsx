@@ -1,12 +1,16 @@
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
-import IdentityForm from "@/components/IdentityForm";
+import InviteChoiceForm from "@/components/InviteChoiceForm";
 import { checkInviteCode } from "@/lib/invite";
 
 export const dynamic = "force-dynamic";
 
-export default async function InviteSignupPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
-  const { code } = await searchParams;
+export default async function InviteSignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ code?: string; error?: string }>;
+}) {
+  const { code, error } = await searchParams;
   const check = code ? await checkInviteCode(code) : ({ valid: false } as const);
 
   return (
@@ -19,8 +23,8 @@ export default async function InviteSignupPage({ searchParams }: { searchParams:
             <h1>
               You&apos;re invited, <em>{check.patientFirstName}</em>
             </h1>
-            <p className="sub">Issued by {check.issuedByDietitianName} — just a couple details to finish.</p>
-            <IdentityForm code={code as string} />
+            <p className="sub">Issued by {check.issuedByDietitianName}.</p>
+            <InviteChoiceForm code={code as string} googleError={error} />
           </>
         ) : (
           <div className="card pad-lg">

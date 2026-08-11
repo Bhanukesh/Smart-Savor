@@ -30,8 +30,9 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
 - **Photo or PDF uploads** (receipts, lab reports): the parser branches on `mediaType` —
   `application/pdf` sends an Anthropic `document` content block, everything else sends an
   `image` block. See `lib/receiptParser.ts` / `lib/labReportParser.ts`.
-- **Auth is a three-way split**: real Clerk-managed auth for dietitians, a real custom
-  session for patients, mocked identity verification underneath that patient session.
+- **Auth is a three-way split**: real Clerk-managed auth for dietitians, real (not mocked)
+  Google OAuth or Twilio Verify OTP for patient identity, a real custom session underneath
+  either patient path.
   - **Dietitians** sign in via **Clerk** (`@clerk/nextjs`) at `/login/dietitian` —
     Google/Microsoft only, no password, no email/password connection enabled. The Clerk
     tenant is set to **Restricted mode**: nobody can create a Clerk account at all without an
@@ -43,10 +44,23 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
     stamps the target `Dietitian.id` onto the Clerk invitation's `publicMetadata`; the webhook
     at `app/api/webhooks/clerk/route.ts` creates the `User` row once they actually accept).
     A Clerk session with no matching row lands on `/login/dietitian/no-access`, not the app.
-  - **Patients** go through invite-code redemption (`lib/invite.ts`) then a session
-    (`lib/auth/session.ts`, real — opaque token + httpOnly cookie), unrelated to Clerk
-    entirely. Identity verification (`lib/auth/verifyIdentity.ts`) is a stand-in for Auth0 and
-    accepts whatever's submitted — say so plainly if this comes up, don't imply it's wired.
+  - **Patients** choose Google or phone at `/invite/signup`, deliberately **not** Clerk — Clerk's
+    Restricted mode is one on/off switch for the whole app; turning it off so patients (already
+    gated by their invite *code*) could use it would also remove the only gate the dietitian
+    side has, since nothing else backs that one up. Google uses a direct OAuth2 client
+    (`lib/auth/googleOAuth.ts`, real ID-token verification, not Clerk); phone uses Twilio Verify
+    (`lib/sms.ts`, a real texted-and-checked code, not the old "accepts whatever's submitted"
+    mock — that mock, `lib/auth/verifyIdentity.ts`, is gone). Either path lands on
+    `app/invite/details` to confirm name/age, then `POST /api/invite/finish` — which trusts
+    *only* a short-lived signed cookie set by the Google callback or the OTP-check route
+    (`lib/invitePendingIdentity.ts`), never anything the client claims about its own identity.
+    Once redeemed, patients get the same session as always (`lib/auth/session.ts`, opaque
+    token + httpOnly cookie) — unrelated to Clerk entirely, unaffected by which path they took.
+  - **`mobile/`'s own signup screen still uses the old, unverified `{phone, firstName,
+    lastName}` shape directly against `/api/invite/redeem`** (unchanged, kept for backward
+    compatibility) — it hasn't been moved to real Google/OTP verification yet; that needs
+    dedicated Expo-specific research (in-app browser / redirect patterns) before it's touched.
+    Don't assume mobile phone signup is verified just because web's is now.
   - `proxy.ts` (Next 16's renamed, Node.js-runtime middleware) gates the dietitian console
     pages (`/`, `/patients/**`, `/team`) and every dietitian-exclusive API action against a
     linked Clerk identity, and separately requires a real patient session for `/me/**` — see
@@ -62,6 +76,9 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
     `DIETITIAN_BOOTSTRAP_EMAIL` is set to (see `.env`/deploy secrets) — `prisma/seed.ts` links
     that email to the seeded "Maria, RD" practice data on first Clerk sign-in. It has to be a
     real account Clerk can authenticate against, not a placeholder.
+  - Dietitians can text an invite straight to a patient's phone from "Add patient" — optional,
+    via Twilio (`lib/sms.ts`'s `sendInviteSms`, guarded the same way; no phone on file, or no
+    Twilio configured, just falls back to today's copy-the-link-yourself experience).
 - **Clinical authority stays human by design**: extraction code transcribes what's on a
   document; it never computes a target, severity, or "gap" — that's deterministic TypeScript
   (e.g. `confirmLabFinding` in `lib/data.ts`), not something trusted to a model call.

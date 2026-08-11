@@ -3,31 +3,37 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function IdentityForm({ code }: { code: string }) {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+export default function ConfirmDetailsForm({
+  code,
+  initialFirstName,
+  initialLastName,
+}: {
+  code: string;
+  initialFirstName: string;
+  initialLastName: string;
+}) {
+  const [firstName, setFirstName] = useState(initialFirstName);
+  const [lastName, setLastName] = useState(initialLastName);
+  const [age, setAge] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const ageNum = Number(age);
+    if (!firstName.trim() || !Number.isFinite(ageNum) || ageNum <= 0) return;
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/invite/redeem", {
+      const res = await fetch("/api/invite/finish", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           code,
-          identity: {
-            firstName: firstName.trim() || undefined,
-            lastName: lastName.trim() || undefined,
-            email: email.trim() || undefined,
-            phone: phone.trim() || undefined,
-          },
+          firstName: firstName.trim(),
+          lastName: lastName.trim() || undefined,
+          age: ageNum,
         }),
       });
       const data = await res.json();
@@ -45,26 +51,26 @@ export default function IdentityForm({ code }: { code: string }) {
       <h2>
         <i className="ph ph-user ic-primary" /> A couple details
       </h2>
-      <p className="sub" style={{ margin: "0 0 16px" }}>
-        This stands in for Google or phone sign-in until real Auth0 is wired in — for now, just
-        tell us who you are.
-      </p>
+      {(initialFirstName || initialLastName) && (
+        <p className="sub" style={{ margin: "0 0 16px" }}>
+          Pulled from your Google account — change anything that&apos;s not right.
+        </p>
+      )}
 
       <div className="field-row">
         <label className="field-label" htmlFor="fname">First name</label>
-        <input id="fname" className="field" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
+        <input id="fname" className="field" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus={!firstName} />
       </div>
       <div className="field-row">
         <label className="field-label" htmlFor="lname">Last name</label>
         <input id="lname" className="field" value={lastName} onChange={(e) => setLastName(e.target.value)} />
       </div>
       <div className="field-row">
-        <label className="field-label" htmlFor="email">Email (optional)</label>
-        <input id="email" type="email" className="field" value={email} onChange={(e) => setEmail(e.target.value)} />
-      </div>
-      <div className="field-row">
-        <label className="field-label" htmlFor="phone">Mobile number (optional)</label>
-        <input id="phone" className="field" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <label className="field-label" htmlFor="age">Age</label>
+        <input
+          id="age" type="number" min="0" className="field" autoFocus={!!firstName}
+          value={age} onChange={(e) => setAge(e.target.value)}
+        />
       </div>
 
       {error && (
@@ -73,7 +79,7 @@ export default function IdentityForm({ code }: { code: string }) {
         </p>
       )}
 
-      <button className="btn primary" type="submit" disabled={submitting || !firstName.trim()} style={{ width: "100%", marginTop: 6 }}>
+      <button className="btn primary" type="submit" disabled={submitting || !firstName.trim() || !age} style={{ width: "100%", marginTop: 6 }}>
         {submitting ? "Activating…" : "Activate my account"} <i className="ph-bold ph-arrow-right" />
       </button>
     </form>

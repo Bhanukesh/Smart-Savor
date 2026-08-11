@@ -3,6 +3,7 @@ import { z } from "zod";
 import { listPatients, createPatient } from "@/lib/data";
 import { generateInviteForPatient } from "@/lib/invite";
 import { getSessionDietitian } from "@/lib/auth/dietitian";
+import { sendInviteSms } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,13 @@ export async function GET() {
 const createBody = z.object({
   name: z.string().trim().min(1),
   age: z.number().int().positive().max(130),
+  phone: z.string().trim().min(1).optional(),
 });
 
-// POST /api/patients — "Add patient": create the record, then immediately mint an invite
-// code, so onboarding a new patient and sending them a code is one step, not two.
+// POST /api/patients — "Add patient": create the record, mint an invite code, and (if a
+// phone number was given) text it — "add patient" and "send invite" land as one natural
+// step. A missing/unconfigured Twilio setup degrades to the same manual-copy-link experience
+// this always had; see lib/sms.ts.
 export async function POST(req: Request) {
   const parsed = createBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -32,5 +36,12 @@ export async function POST(req: Request) {
   const invite = await generateInviteForPatient(patient.id);
   if (!invite) return NextResponse.json({ error: "patient created but invite generation failed" }, { status: 500 });
 
-  return NextResponse.json({ patientId: patient.id, ...invite });
+  let smsSent = false;
+  if (parsed.data.phone) {
+    const inviteLink = new URL(`/invite/signup?code=${invite.code}`, req.url).toString();
+    const result = await sendInviteSms(parsed.data.phone, parsed.data.name.split(" ")[0], dietitian.dietitianName, inviteLink);
+    smsSent = result.ok;
+  }
+
+  return NextResponse.json({ patientId: patient.id, smsSent, ...invite });
 }

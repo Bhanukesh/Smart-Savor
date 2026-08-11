@@ -4,12 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-type Result = { patientId: string; code: string; expiresAt: string };
+type Result = { patientId: string; code: string; expiresAt: string; smsSent: boolean };
 
 export default function AddPatientForm() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
+  const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [copied, setCopied] = useState(false);
@@ -23,7 +24,7 @@ export default function AddPatientForm() {
       const res = await fetch("/api/patients", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), age: ageNum }),
+        body: JSON.stringify({ name: name.trim(), age: ageNum, phone: phone.trim() || undefined }),
       });
       if (res.ok) {
         setResult(await res.json());
@@ -48,6 +49,7 @@ export default function AddPatientForm() {
     setOpen(false);
     setName("");
     setAge("");
+    setPhone("");
     setResult(null);
     setCopied(false);
   }
@@ -70,7 +72,9 @@ export default function AddPatientForm() {
             <i className="ph ph-check-circle ic-primary" /> {name} is on your caseload
           </h2>
           <p className="sub" style={{ margin: "0 0 12px" }}>
-            Send this link to {name.split(" ")[0]} — it opens straight to sign-up, no code to type.
+            {result.smsSent
+              ? `Texted the invite link to ${name.split(" ")[0]} — you can also share it below.`
+              : `Send this link to ${name.split(" ")[0]} — it opens straight to sign-up, no code to type.`}
           </p>
           <div className="btn-row" style={{ marginBottom: 12 }}>
             <button className="btn primary sm" onClick={() => copyLink(result.code)}>
@@ -97,7 +101,9 @@ export default function AddPatientForm() {
             <i className="ph ph-user-plus ic-primary" /> Add a patient
           </h2>
           <p className="sub" style={{ margin: "0 0 12px" }}>
-            Name and age is all it takes — a sign-up code is generated right after.
+            Name and age is all it takes — a sign-up code is generated right after. Add a
+            mobile number to text it to them automatically, or leave it blank and share the
+            link yourself.
           </p>
           <div style={{ display: "flex", gap: 8 }}>
             <div className="field-row" style={{ flex: 2 }}>
@@ -115,6 +121,14 @@ export default function AddPatientForm() {
                 value={age} onChange={(e) => setAge(e.target.value)}
               />
             </div>
+          </div>
+          <div className="field-row">
+            <label className="field-label" htmlFor="new-patient-phone">Mobile number (optional)</label>
+            <input
+              id="new-patient-phone" type="tel" className="field"
+              value={phone} onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 555 555 0100"
+            />
           </div>
           <div className="btn-row" style={{ marginTop: 12 }}>
             <button className="btn" disabled={submitting} onClick={close}>Cancel</button>

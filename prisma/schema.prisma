@@ -127,6 +127,11 @@ model Patient {
   dietitianId  String?  @map("dietitian_id") @db.Uuid
   dietitian    Dietitian? @relation(fields: [dietitianId], references: [id])
   name         String
+  // Collected at "Add patient" time (dietitian-entered, optional) so the invite SMS can be
+  // sent automatically on create — see lib/sms.ts. Distinct from User.phone, which is the
+  // patient's own, self-verified number captured at signup (may differ, e.g. if the
+  // dietitian had an old number on file); this one is purely a delivery address.
+  phone        String?
   age          Int?
   conditions   String[] @default([])
   // Dietary preferences (ER design 3.3): food-sourcing agent reads these as a simple list.
@@ -504,17 +509,19 @@ model PatientInvite {
   @@map("patient_invites")
 }
 
-// Dietitian rows carry clerkUserId (real Clerk-managed auth); patient rows carry auth0UserId
-// (still a mocked stand-in — see lib/auth/verifyIdentity.ts). passwordHash is legacy, unused
-// now that dietitian auth moved to Clerk — kept nullable rather than dropped, no data to lose.
-// The role/dietitianId/patientId shape constraint is enforced by a hand-added CHECK in the
-// generated migration SQL (see prisma/migrations/.../migration.sql), unaffected by this.
+// Dietitian rows carry clerkUserId (real Clerk-managed auth). Patient rows carry either
+// googleUserId (real Google OAuth, lib/auth/googleOAuth.ts) or a verified phone (real Twilio
+// Verify OTP, lib/sms.ts) — whichever the patient chose at signup; never both. passwordHash is
+// legacy, unused now that dietitian auth moved to Clerk — kept nullable rather than dropped,
+// no data to lose. The role/dietitianId/patientId shape constraint is enforced by a
+// hand-added CHECK in the generated migration SQL (see prisma/migrations/.../migration.sql),
+// unaffected by this.
 model User {
   id                       String    @id @default(uuid()) @db.Uuid
   email                    String?   @unique
   phone                    String?   @unique
   passwordHash             String?   @map("password_hash")
-  auth0UserId              String?   @unique @map("auth0_user_id")
+  googleUserId             String?   @unique @map("google_user_id")
   clerkUserId              String?   @unique @map("clerk_user_id")
   role                     UserRole
   dietitianId              String?   @unique @map("dietitian_id") @db.Uuid

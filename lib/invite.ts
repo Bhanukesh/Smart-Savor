@@ -1,11 +1,17 @@
 /**
  * Invite-code gate + sign-up — er-design.md §Part 1, Decisions 2-3. The code is the only
- * gate: identity verification (verifyIdentity, mocked this increment) only ever runs after
- * a valid, unexpired, unredeemed code is presented.
+ * gate: identity verification runs only after a valid, unexpired, unredeemed code is
+ * presented, and only ever reaches redeemInvite() once it's actually happened.
+ *
+ * Two real verification paths exist for web (see app/api/invite/google/*,
+ * app/api/invite/phone/*): Google OAuth (a real `sub` claim) or Twilio Verify OTP (a real,
+ * texted-and-checked code) — both call this with already-verified identity, never a mock.
+ * mobile/ still calls this directly with an unverified {phone, firstName, lastName} — a
+ * documented, narrower legacy path (see mobile/lib/session.ts's comments) until it gets the
+ * same real-verification treatment web just did.
  */
 import crypto from "crypto";
 import { prisma } from "./db";
-import { verifyIdentity } from "./auth/verifyIdentity";
 import { createSession } from "./auth/session";
 
 export type InviteCheck =
@@ -31,32 +37,36 @@ export type RedeemResult =
 
 export async function redeemInvite(
   code: string,
-  identity: { email?: string; phone?: string; firstName?: string; lastName?: string },
+  identity: { email?: string; phone?: string; googleUserId?: string; firstName?: string; lastName?: string },
+  age?: number,
 ): Promise<RedeemResult> {
   const invite = await prisma.patientInvite.findUnique({ where: { code }, include: { patient: true } });
   if (!invite) return { ok: false, error: "not_found" };
   if (invite.redeemedAt) return { ok: false, error: "already_redeemed" };
   if (invite.expiresAt < new Date()) return { ok: false, error: "expired" };
 
-  const verified = await verifyIdentity(identity);
-
   const user = await prisma.user.upsert({
     where: { patientId: invite.patientId },
     create: {
       role: "patient",
       patientId: invite.patientId,
-      email: verified.email,
-      phone: verified.phone,
-      // Placeholder — a real Auth0 `sub` claim replaces this once verifyIdentity() is real.
-      auth0UserId: `mock_${invite.patientId}`,
+      email: identity.email,
+      phone: identity.phone,
+      googleUserId: identity.googleUserId,
     },
     update: {
-      ...(verified.email ? { email: verified.email } : {}),
-      ...(verified.phone ? { phone: verified.phone } : {}),
+      ...(identity.email ? { email: identity.email } : {}),
+      ...(identity.phone ? { phone: identity.phone } : {}),
+      ...(identity.googleUserId ? { googleUserId: identity.googleUserId } : {}),
     },
   });
 
   await prisma.patientInvite.update({ where: { id: invite.id }, data: { redeemedAt: new Date() } });
+  // The dietitian's age at "Add patient" time is a rough placeholder; whatever the patient
+  // confirms/enters at signup is the real value.
+  if (age !== undefined) {
+    await prisma.patient.update({ where: { id: invite.patientId }, data: { age } });
+  }
   await createSession(user.id);
 
   return { ok: true, patientId: invite.patientId, patientFirstName: invite.patient.name.split(" ")[0] };
