@@ -4,13 +4,13 @@ import PortalNav from "@/components/PortalNav";
 import BodyClass from "@/components/BodyClass";
 import PreferencesForm from "@/components/PreferencesForm";
 import WeightCheckInForm from "@/components/WeightCheckInForm";
-import { getDemoPatient, getWeightCheckIns } from "@/lib/data";
+import { getSessionPatient, getWeightCheckIns } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
-  const patient = await getDemoPatient();
+  const patient = await getSessionPatient();
   if (!patient) notFound();
   const checkIns = await getWeightCheckIns(patient.id, 4);
 

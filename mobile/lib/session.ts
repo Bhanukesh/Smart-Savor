@@ -1,11 +1,14 @@
 /**
  * On-device session — the mobile equivalent of the web app's httpOnly cookie set by
  * lib/auth/session.ts in the Next.js app. There is no bearer token: POST /api/invite/redeem
- * never returns one, and no API route today verifies a session against the patient :id in its
- * URL at all (a documented, accepted gap in the backend — see lib/data.ts's "no dietitian
- * session exists yet" comments). So this app's "auth" is: redeem an invite code, store the
- * returned patientId, use it directly in API calls — a faithful mirror of how the web app's
- * /me/* pages already work via getDemoPatient(), not a new gap introduced here.
+ * never returns one, and the shared /api/patients/[id]/* routes still don't verify a session
+ * against the patient :id in the URL (a documented, accepted gap — proxy.ts's
+ * PATIENT_SAFE_PATTERNS lets these through without checking the caller *is* that patient).
+ * The web app's own /me/* pages no longer have this problem — proxy.ts now requires a real
+ * patient session to render them, and each page resolves the patient from that session
+ * (lib/data.ts's getSessionPatient()), not a guess. This app's "auth" is still: redeem an
+ * invite code, store the returned patientId, use it directly in API calls — real work,
+ * deferred, not a new gap introduced here.
  *
  * expo-secure-store (iOS Keychain / Android Keystore) is used anyway, even though the backend
  * doesn't treat this as a real credential yet: whoever holds this patientId can read/write

@@ -2,13 +2,13 @@ import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import BodyClass from "@/components/BodyClass";
 import CycleHistoryBoard from "@/components/CycleHistoryBoard";
-import { getDemoPatient, getCycleHistory } from "@/lib/data";
+import { getSessionPatient, getCycleHistory } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
-  const patient = await getDemoPatient();
+  const patient = await getSessionPatient();
   if (!patient) notFound();
   const history = await getCycleHistory(patient.id);
 

@@ -38,10 +38,14 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
   `/login/dietitian` (email + bcrypt-hashed password, `lib/auth/session.ts`'s
   `loginDietitian()`), rate-limited via `lib/rateLimit.ts`. `proxy.ts` (Next 16's renamed,
   Node.js-runtime middleware) gates the dietitian console pages (`/`, `/patients/**`) and every
-  dietitian-exclusive API action — see its own comments for the full patient-safe-vs-gated
-  classification, since several `/api/patients/[id]/*` routes are genuinely shared between
-  both sides (patients call some of them directly, both from `/me/*` and `mobile/`).
-  There is deliberately **no public patient self-signup** — invite code first, always.
+  dietitian-exclusive API action, and separately requires a real patient session for `/me/**`
+  — see its own comments for the full patient-safe-vs-gated classification. Web pages resolve
+  *which* patient from that session (`getSessionPatient()` in `lib/data.ts`), not a guess.
+  The shared `/api/patients/[id]/*` routes (called by both `/me/*` and `mobile/`) still don't
+  verify the session belongs to that `:id` — a documented, accepted gap, since closing it means
+  giving `mobile/` a real bearer token first (it has no cookie jar today; see
+  `mobile/lib/session.ts`'s comments). There is deliberately **no public patient self-signup**
+  — invite code first, always.
   The demo dietitian login is `maria@metronutrition.example` / see `prisma/seed.ts` for the
   password — a documented demo credential, reset on every `db:seed`, not a production secret.
 - **Clinical authority stays human by design**: extraction code transcribes what's on a
