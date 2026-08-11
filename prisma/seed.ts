@@ -12,10 +12,11 @@ const prisma = new PrismaClient();
 // environment rather than hardcoded here, same as every other secret in this repo (e.g.
 // ANTHROPIC_API_KEY) — set DEMO_DIETITIAN_PASSWORD in .env locally.
 export const DEMO_DIETITIAN_EMAIL = "maria@metronutrition.example";
-export const DEMO_DIETITIAN_PASSWORD = process.env.DEMO_DIETITIAN_PASSWORD;
-if (!DEMO_DIETITIAN_PASSWORD) {
+const rawDemoPassword = process.env.DEMO_DIETITIAN_PASSWORD;
+if (!rawDemoPassword) {
   throw new Error("DEMO_DIETITIAN_PASSWORD is not set — add it to .env before running the seed.");
 }
+export const DEMO_DIETITIAN_PASSWORD: string = rawDemoPassword;
 
 // --- Caseload filler patients ----------------------------------------------------
 // Sam is the fully-worked demo patient (receipts, logs, messages, invite, cycle history —

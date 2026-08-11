@@ -42,11 +42,13 @@ jobs:
           az containerapp secret set \
             --resource-group rg-students-platform \
             --name ca-${{ vars.STUDENT }} \
-            --secrets anthropic-api-key="${{ secrets.ANTHROPIC_API_KEY }}"
+            --secrets anthropic-api-key="${{ secrets.ANTHROPIC_API_KEY }}" \
+              demo-dietitian-password="${{ secrets.DEMO_DIETITIAN_PASSWORD }}"
           az containerapp update \
             --resource-group rg-students-platform \
             --name ca-${{ vars.STUDENT }} \
-            --set-env-vars ANTHROPIC_API_KEY=secretref:anthropic-api-key
+            --set-env-vars ANTHROPIC_API_KEY=secretref:anthropic-api-key \
+              DEMO_DIETITIAN_PASSWORD=secretref:demo-dietitian-password
 
       - name: Deploy to Container App
         run: |
