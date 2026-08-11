@@ -118,6 +118,15 @@ i.ph, i[class*="ph-"]{line-height:1;vertical-align:-.12em}
   background:linear-gradient(135deg,var(--primary),var(--primary-strong));
   color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(29,78,216,.35);
 }
+.nav-badge{
+  position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;
+  background:var(--danger);border:1.5px solid #fff;
+}
+.nav-badge.pulse{animation:nav-badge-pulse 1.8s ease-in-out infinite}
+@keyframes nav-badge-pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.55)}
+  50%{box-shadow:0 0 0 5px rgba(220,38,38,0)}
+}
 
 /* ============ Headings ============ */
 .eyebrow{

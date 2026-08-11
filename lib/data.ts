@@ -10,6 +10,7 @@ import { matchFood } from "./foodLog";
 import { parseReceipt } from "./receiptParser";
 import { parseLabReport } from "./labReportParser";
 import { saveUpload } from "./storage";
+import { getSessionUser } from "./auth/session";
 import type {
   Patient, FocusItem, ApprovedList, ChoiceResult, DashboardGauge, NutrientGap, NutrientKey, Severity,
   ConsumptionEntry, ReceiptSummary, ReceiptDetail, ReceiptLineItemEntry, WeightCheckInEntry,
@@ -27,13 +28,15 @@ function serializeGap(g: {
   };
 }
 
-/** Onboard a brand-new patient from the roster's "Add patient" flow. Single-dietitian demo —
- * there's no dietitian session yet (documented gap, same as elsewhere in this file), so the
- * new patient is assigned to whichever dietitian owns this practice, same fallback pattern as
- * getDemoPatient(). The caller (the API route) follows this with generateInviteForPatient so
+/** Onboard a brand-new patient from the roster's "Add patient" flow, assigned to the
+ * dietitian creating them. The caller (the API route, itself gated to a dietitian session
+ * by proxy.ts) passes their own dietitianId — this follows with generateInviteForPatient so
  * "add patient" and "send invite" land as one natural step, per how it was asked for. */
-export async function createPatient(input: { name: string; age: number }): Promise<{ id: string } | null> {
-  const dietitian = await prisma.dietitian.findFirst({ orderBy: { createdAt: "asc" } });
+export async function createPatient(
+  input: { name: string; age: number },
+  dietitianId: string,
+): Promise<{ id: string } | null> {
+  const dietitian = await prisma.dietitian.findUnique({ where: { id: dietitianId } });
   if (!dietitian) return null;
   const patient = await prisma.patient.create({
     data: {
@@ -191,6 +194,19 @@ export async function getPatient(id: string): Promise<Patient | null> {
   };
 }
 
+/** Nav-badge state for a freshly onboarded patient: has Maria's mandatory ask (a lab report)
+ * been met, and the optional one (a receipt)? Counts any upload attempt, not just parsed ones
+ * — the point is "have they engaged with this at all," which a pending/failed parse still is. */
+export async function getOnboardingStatus(
+  patientId: string,
+): Promise<{ hasLabReports: boolean; hasReceipts: boolean }> {
+  const [labReportCount, receiptCount] = await Promise.all([
+    prisma.labReport.count({ where: { patientId } }),
+    prisma.receipt.count({ where: { patientId } }),
+  ]);
+  return { hasLabReports: labReportCount > 0, hasReceipts: receiptCount > 0 };
+}
+
 /** Dietary preferences: restrictions, dislikes, weekly grocery budget, weekly-nudge toggle —
  * clinician/patient-entered. Backs the entire "Your Plan" section of /me/profile. */
 export async function setDietaryPreferences(
@@ -211,16 +227,15 @@ export async function setDietaryPreferences(
   return getPatient(patientId);
 }
 
-/** The seeded demo patient (Sam) — for pages that aren't yet routed by patient id. */
-export async function getDemoPatient(): Promise<Patient | null> {
-  const first = await prisma.patient.findFirst({ orderBy: { createdAt: "asc" } });
-  return first ? getPatient(first.id) : null;
-}
-
-/** Resolve the patient a console page should show: an explicit ?patient=<id>, or the demo patient
- * as a fallback so existing links (nav, homepage) keep working without a query param. */
-export async function resolvePatient(patientId?: string): Promise<Patient | null> {
-  return patientId ? getPatient(patientId) : getDemoPatient();
+/** The signed-in patient for the current request, or null if there's no valid patient session.
+ * Replaces the old getDemoPatient() (whichever patient row was created first, regardless of
+ * who — or whether anyone — was logged in). proxy.ts already blocks unauthenticated /me/*
+ * requests before a page body ever runs; this is the downstream lookup that resolves *which*
+ * patient, same division of labor session.ts documents for the dietitian side. */
+export async function getSessionPatient(): Promise<Patient | null> {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser || sessionUser.role !== "patient" || !sessionUser.patientId) return null;
+  return getPatient(sessionUser.patientId);
 }
 
 /** Every focus-set/gap/approved-list function keys off an active Cycle. createPatient() creates

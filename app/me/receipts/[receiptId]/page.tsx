@@ -2,14 +2,14 @@ import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import BodyClass from "@/components/BodyClass";
 import ReceiptReview from "@/components/ReceiptReview";
-import { getDemoPatient, getReceiptDetail } from "@/lib/data";
+import { getSessionPatient, getReceiptDetail } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReceiptDetailPage({ params }: { params: Promise<{ receiptId: string }> }) {
   const { receiptId } = await params;
-  const patient = await getDemoPatient();
+  const patient = await getSessionPatient();
   if (!patient) notFound();
   const receipt = await getReceiptDetail(patient.id, receiptId);
   if (!receipt) notFound();

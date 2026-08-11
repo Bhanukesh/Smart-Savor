@@ -45,8 +45,28 @@ function needsDietitianSession(pathname: string, method: string): boolean {
   return !PATIENT_SAFE_PATTERNS.some((p) => p.test(pathname));
 }
 
+// The patient app (/me/*) previously rendered with zero auth at all — every page pulled
+// getDemoPatient() (whichever patient row was created first) instead of checking who's
+// actually signed in. This closes that: any /me/* request needs a real, unexpired session
+// belonging to a patient. The pages themselves still do their own getSessionUser() lookup
+// downstream (same division of labor as the dietitian side) to resolve *which* patient.
+function needsPatientSession(pathname: string): boolean {
+  return pathname === "/me" || pathname.startsWith("/me/");
+}
+
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (needsPatientSession(pathname)) {
+    const token = request.cookies.get(COOKIE_NAME)?.value;
+    const session = token
+      ? await prisma.session.findUnique({ where: { token }, include: { user: true } })
+      : null;
+    const valid = session && session.expiresAt > new Date() && session.user.role === "patient";
+    if (valid) return NextResponse.next();
+    return NextResponse.redirect(new URL("/invite", request.url));
+  }
+
   if (!needsDietitianSession(pathname, request.method)) return NextResponse.next();
 
   const token = request.cookies.get(COOKIE_NAME)?.value;

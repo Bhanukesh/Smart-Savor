@@ -2,13 +2,13 @@ import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import BodyClass from "@/components/BodyClass";
-import { getDemoPatient, computeDashboard, getWeightCheckIns } from "@/lib/data";
+import { getSessionPatient, computeDashboard, getWeightCheckIns } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const patient = await getDemoPatient();
+  const patient = await getSessionPatient();
   if (!patient) notFound();
   const gauges = await computeDashboard(patient.id);
   const inRangeCount = gauges.filter((g) => g.inRange).length;

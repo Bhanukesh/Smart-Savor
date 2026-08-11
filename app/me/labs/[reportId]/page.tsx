@@ -2,14 +2,14 @@ import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import BodyClass from "@/components/BodyClass";
 import LabReportReview from "@/components/LabReportReview";
-import { getDemoPatient, getLabReportDetail } from "@/lib/data";
+import { getSessionPatient, getLabReportDetail } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function LabReportDetailPage({ params }: { params: Promise<{ reportId: string }> }) {
   const { reportId } = await params;
-  const patient = await getDemoPatient();
+  const patient = await getSessionPatient();
   if (!patient) notFound();
   const report = await getLabReportDetail(patient.id, reportId);
   if (!report) notFound();
