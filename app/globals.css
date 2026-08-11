@@ -199,6 +199,15 @@ a.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color
 .field-row{margin-bottom:16px}
 .field-row:last-child{margin-bottom:0}
 
+.field-with-toggle{position:relative}
+.field-with-toggle .field{padding-right:38px}
+.field-toggle-btn{
+  position:absolute;top:0;right:0;bottom:0;width:38px;display:flex;align-items:center;justify-content:center;
+  background:none;border:none;cursor:pointer;color:var(--muted-foreground);font-size:17px;padding:0;
+}
+.field-toggle-btn:hover{color:var(--foreground)}
+.field-toggle-btn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:6px}
+
 .toggle{position:relative;display:inline-block;width:38px;height:22px;flex:none}
 .toggle input{opacity:0;width:0;height:0}
 .toggle .slider{position:absolute;inset:0;background:var(--muted);border-radius:999px;transition:.18s;cursor:pointer}

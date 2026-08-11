@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 export default function DietitianLoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -48,10 +49,21 @@ export default function DietitianLoginForm() {
       </div>
       <div className="field-row">
         <label className="field-label" htmlFor="password">Password</label>
-        <input
-          id="password" type="password" className="field" autoComplete="current-password"
-          value={password} onChange={(e) => setPassword(e.target.value)}
-        />
+        <div className="field-with-toggle">
+          <input
+            id="password" type={showPassword ? "text" : "password"} className="field" autoComplete="current-password"
+            value={password} onChange={(e) => setPassword(e.target.value)}
+          />
+          <button
+            type="button" className="field-toggle-btn"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-pressed={showPassword}
+            tabIndex={-1}
+          >
+            <i className={showPassword ? "ph ph-eye-slash" : "ph ph-eye"} />
+          </button>
+        </div>
       </div>
 
       {error && (
