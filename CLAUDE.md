@@ -30,12 +30,13 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
 - **Photo or PDF uploads** (receipts, lab reports): the parser branches on `mediaType` —
   `application/pdf` sends an Anthropic `document` content block, everything else sends an
   `image` block. See `lib/receiptParser.ts` / `lib/labReportParser.ts`.
-- **Auth is a three-way split**: real Clerk-managed auth for dietitians, a real custom
-  session for patients, mocked identity verification underneath that patient session.
-  - **Dietitians** sign in via **Clerk** (`@clerk/nextjs`) at `/login/dietitian` —
-    Google/Microsoft only, no password, no email/password connection enabled. The Clerk
-    tenant is set to **Restricted mode**: nobody can create a Clerk account at all without an
-    invitation, so "who can sign up" is enforced by Clerk itself, not app code. A Clerk
+- **Auth runs on two separate Clerk applications, one per role, plus a real custom session
+  underneath the patient one.** Not one Clerk app serving both — see below for exactly why.
+  - **Dietitians** sign in via the **dietitian Clerk app** (`@clerk/nextjs`, default env vars —
+    `CLERK_SECRET_KEY` / `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) at `/login/dietitian` —
+    Google/Microsoft only, no password. This app is set to **Restricted mode**: nobody can
+    create an account there at all without an invitation — the *only* thing gating who can
+    become a dietitian, since nothing else checks before Clerk's sign-in screen. A Clerk
     session alone still isn't sufficient, though — `lib/auth/dietitian.ts` is the app-side
     half, resolving a Clerk identity to an actual `Dietitian`/`User` row two ways: a
     pre-provisioned "open seat" (`prisma/seed.ts`'s bootstrap dietitian, claimed by email on
@@ -43,16 +44,40 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
     stamps the target `Dietitian.id` onto the Clerk invitation's `publicMetadata`; the webhook
     at `app/api/webhooks/clerk/route.ts` creates the `User` row once they actually accept).
     A Clerk session with no matching row lands on `/login/dietitian/no-access`, not the app.
-  - **Patients** go through invite-code redemption (`lib/invite.ts`) then a session
-    (`lib/auth/session.ts`, real — opaque token + httpOnly cookie), unrelated to Clerk
-    entirely. Identity verification (`lib/auth/verifyIdentity.ts`) is a stand-in for Auth0 and
-    accepts whatever's submitted — say so plainly if this comes up, don't imply it's wired.
+  - **Patients** sign in via a **second, separate patient Clerk app**
+    (`NEXT_PUBLIC_PATIENT_CLERK_PUBLISHABLE_KEY` / `PATIENT_CLERK_SECRET_KEY`,
+    `lib/patientClerk.ts`) — Google only, deliberately **not** the dietitian app and
+    deliberately **left unrestricted**. Restricted mode is one on/off switch for a whole Clerk
+    app; patients are already gated by their invite *code* (checked before they ever reach
+    Clerk's sign-in), so they don't need it — but sharing the dietitian's app and turning
+    Restricted mode off to accommodate them would strip the *only* protection that side has,
+    since it has no other check backing it up. `proxy.ts`'s `clerkMiddleware` key resolver
+    (Clerk's own documented multi-tenant pattern) routes `/invite/*` and `/api/invite/*` to
+    the patient app's keys, everywhere else to the dietitian app's; `app/invite/layout.tsx`
+    nests a second, patient-keyed `<ClerkProvider>` for the client side. Flow: `/invite/signup`
+    (code check, then Clerk's `<SignIn/>`) → `/invite/claim` (reads the now-established patient
+    Clerk session via `auth()`, confirms name pre-filled from Google + age) →
+    `POST /api/invite/finish`, which trusts only `auth()`'s `userId` for identity — never
+    anything the client claims — and calls `lib/invite.ts`'s `redeemInvite()`, which still
+    creates the *real* session patients have always had (`lib/auth/session.ts`, opaque token +
+    httpOnly cookie, nothing to do with Clerk) — the patient Clerk app is purely an identity
+    step during signup, not an ongoing session mechanism.
+  - Clerk's own `createInvitation()` (`lib/patientClerk.ts`'s `invitePatientByEmail`) is the
+    entire invite-delivery mechanism now — no Resend, no Twilio; Clerk sends the email itself.
+    A patient's SMS/OTP path was tried and deliberately dropped (A2P 10DLC registration
+    friction) — see git history if resurrecting it later.
+  - **`mobile/`'s own signup screen still uses the old, unverified `{phone, firstName,
+    lastName}` shape directly against `/api/invite/redeem`** (unchanged, kept for backward
+    compatibility) — it hasn't been moved to real verification; that needs dedicated
+    Expo-specific research (in-app browser / redirect patterns) before it's touched. Don't
+    assume mobile signup is verified just because web's is now.
   - `proxy.ts` (Next 16's renamed, Node.js-runtime middleware) gates the dietitian console
     pages (`/`, `/patients/**`, `/team`) and every dietitian-exclusive API action against a
-    linked Clerk identity, and separately requires a real patient session for `/me/**` — see
-    its own comments for the full patient-safe-vs-gated classification. Web pages resolve
-    *which* patient/dietitian from their respective session (`getSessionPatient()` in
-    `lib/data.ts`, `getSessionDietitian()` in `lib/auth/dietitian.ts`), never a guess.
+    linked dietitian-Clerk identity, and separately requires a real patient session for
+    `/me/**` — see its own comments for the full patient-safe-vs-gated classification. Web
+    pages resolve *which* patient/dietitian from their respective session
+    (`getSessionPatient()` in `lib/data.ts`, `getSessionDietitian()` in `lib/auth/dietitian.ts`),
+    never a guess.
   - The shared `/api/patients/[id]/*` routes (called by both `/me/*` and `mobile/`) still
     don't verify a *patient* session belongs to that `:id` — a documented, accepted gap, since
     closing it means giving `mobile/` a real bearer token first (it has no cookie jar today;

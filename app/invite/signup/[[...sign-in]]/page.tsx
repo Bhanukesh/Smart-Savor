@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { SignIn } from "@clerk/nextjs";
 import Topbar from "@/components/Topbar";
-import IdentityForm from "@/components/IdentityForm";
 import { checkInviteCode } from "@/lib/invite";
 
 export const dynamic = "force-dynamic";
 
+// Google sign-in through the separate, unrestricted patient Clerk app (app/invite/layout.tsx
+// nests a second ClerkProvider here, scoped by proxy.ts's key resolver) — the invite code
+// re-checked here is still the real gate; Clerk itself doesn't restrict who can sign in.
 export default async function InviteSignupPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
   const { code } = await searchParams;
   const check = code ? await checkInviteCode(code) : ({ valid: false } as const);
@@ -19,8 +22,13 @@ export default async function InviteSignupPage({ searchParams }: { searchParams:
             <h1>
               You&apos;re invited, <em>{check.patientFirstName}</em>
             </h1>
-            <p className="sub">Issued by {check.issuedByDietitianName} — just a couple details to finish.</p>
-            <IdentityForm code={code as string} />
+            <p className="sub">Issued by {check.issuedByDietitianName}.</p>
+            <SignIn
+              path="/invite/signup"
+              routing="path"
+              signUpUrl="/invite/signup"
+              fallbackRedirectUrl={`/invite/claim?code=${encodeURIComponent(code as string)}`}
+            />
           </>
         ) : (
           <div className="card pad-lg">

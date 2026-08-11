@@ -34,11 +34,14 @@ jobs:
 
       - name: Build and push image (in ACR)
         run: |
-          # Clerk's publishable key isn't secret (it's designed to ship in the browser bundle),
-          # so it's versioned here like any other build-time config, not a GitHub secret.
+          # Clerk's publishable keys aren't secret (they're designed to ship in the browser
+          # bundle), so they're versioned here like any other build-time config, not GitHub
+          # secrets. Two apps, two keys — see CLAUDE.md for why patients and dietitians are on
+          # separate Clerk applications.
           az acr build --registry ${{ vars.ACR_NAME }} \
             --image ${{ vars.STUDENT }}/web:${{ github.sha }} \
-            --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_Ym9zcy1saW9uZXNzLTk5LmNsZXJrLmFjY291bnRzLmRldiQ .
+            --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_Ym9zcy1saW9uZXNzLTk5LmNsZXJrLmFjY291bnRzLmRldiQ \
+            --build-arg NEXT_PUBLIC_PATIENT_CLERK_PUBLISHABLE_KEY=pk_test_dG91Z2gtbGFkeWJ1Zy0yOC5jbGVyay5hY2NvdW50cy5kZXYk .
 
       - name: Sync app config
         run: |
@@ -80,6 +83,42 @@ jobs:
               --set-env-vars CLERK_WEBHOOK_SIGNING_SECRET=secretref:clerk-webhook-signing-secret
           else
             echo "::warning::CLERK_WEBHOOK_SIGNING_SECRET secret not set — new dietitian sign-ups won't get linked to an account this deploy."
+          fi
+
+          # Patient auth — the second, separate patient Clerk app (see CLAUDE.md). Its
+          # publishable key is already baked into the image above (build-time); this is just
+          # its secret key. Same guarded pattern: missing it disables patient signup for this
+          # deploy (falls back to sharing the raw invite link) rather than blocking anything.
+          if [ -n "${{ secrets.PATIENT_CLERK_SECRET_KEY }}" ]; then
+            az containerapp secret set \
+              --resource-group rg-students-platform \
+              --name ca-${{ vars.STUDENT }} \
+              --secrets patient-clerk-secret-key="${{ secrets.PATIENT_CLERK_SECRET_KEY }}"
+            az containerapp update \
+              --resource-group rg-students-platform \
+              --name ca-${{ vars.STUDENT }} \
+              --set-env-vars PATIENT_CLERK_SECRET_KEY=secretref:patient-clerk-secret-key
+          else
+            echo "::warning::PATIENT_CLERK_SECRET_KEY not set — patient Google signup disabled this deploy."
+          fi
+
+          # clerkMiddleware's multi-tenant key resolution (proxy.ts) needs this to propagate a
+          # dynamic secretKey per request — not tied to any account, just a stable random
+          # value (generate once with `openssl rand --hex 32`). Without it, EVERY Clerk-gated
+          # request throws, dietitian included — this one's closer to "required" than
+          # "optional," but still guarded so a missing secret doesn't take the whole deploy
+          # down with it.
+          if [ -n "${{ secrets.CLERK_ENCRYPTION_KEY }}" ]; then
+            az containerapp secret set \
+              --resource-group rg-students-platform \
+              --name ca-${{ vars.STUDENT }} \
+              --secrets clerk-encryption-key="${{ secrets.CLERK_ENCRYPTION_KEY }}"
+            az containerapp update \
+              --resource-group rg-students-platform \
+              --name ca-${{ vars.STUDENT }} \
+              --set-env-vars CLERK_ENCRYPTION_KEY=secretref:clerk-encryption-key
+          else
+            echo "::warning::CLERK_ENCRYPTION_KEY not set — ALL Clerk-gated routes (dietitian console included) will error this deploy."
           fi
 
       - name: Deploy to Container App

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { listPatients, createPatient } from "@/lib/data";
 import { generateInviteForPatient } from "@/lib/invite";
 import { getSessionDietitian } from "@/lib/auth/dietitian";
+import { invitePatientByEmail } from "@/lib/patientClerk";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,13 @@ export async function GET() {
 const createBody = z.object({
   name: z.string().trim().min(1),
   age: z.number().int().positive().max(130),
+  email: z.string().trim().email().optional(),
 });
 
-// POST /api/patients — "Add patient": create the record, then immediately mint an invite
-// code, so onboarding a new patient and sending them a code is one step, not two.
+// POST /api/patients — "Add patient": create the record, mint an invite code, and (if an
+// email was given) send it via the patient Clerk app's own invitation email — "add patient"
+// and "send invite" land as one natural step. A missing/unconfigured patient Clerk app
+// degrades to the same manual-copy-link experience this always had; see lib/patientClerk.ts.
 export async function POST(req: Request) {
   const parsed = createBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -32,5 +36,12 @@ export async function POST(req: Request) {
   const invite = await generateInviteForPatient(patient.id);
   if (!invite) return NextResponse.json({ error: "patient created but invite generation failed" }, { status: 500 });
 
-  return NextResponse.json({ patientId: patient.id, ...invite });
+  let emailSent = false;
+  if (parsed.data.email) {
+    const redirectUrl = new URL(`/invite/signup?code=${invite.code}`, req.url).toString();
+    const result = await invitePatientByEmail(parsed.data.email, redirectUrl, { inviteCode: invite.code });
+    emailSent = result.ok;
+  }
+
+  return NextResponse.json({ patientId: patient.id, emailSent, ...invite });
 }
