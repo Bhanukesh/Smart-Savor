@@ -8,11 +8,14 @@ import { hashPassword } from "../lib/auth/password";
 const prisma = new PrismaClient();
 
 // Demo login for the seeded dietitian — the account has no password until this runs, so the
-// login wall would otherwise lock everyone out of the only seeded dietitian. Same treatment as
-// the app's other demo credentials: real hashing (bcrypt), but a documented, non-secret value
-// since this is a capstone demo account, not a production one.
+// login wall would otherwise lock everyone out of the only seeded dietitian. Required from the
+// environment rather than hardcoded here, same as every other secret in this repo (e.g.
+// ANTHROPIC_API_KEY) — set DEMO_DIETITIAN_PASSWORD in .env locally.
 export const DEMO_DIETITIAN_EMAIL = "maria@metronutrition.example";
-export const DEMO_DIETITIAN_PASSWORD = "smartsavor-demo-2026";
+export const DEMO_DIETITIAN_PASSWORD = process.env.DEMO_DIETITIAN_PASSWORD;
+if (!DEMO_DIETITIAN_PASSWORD) {
+  throw new Error("DEMO_DIETITIAN_PASSWORD is not set — add it to .env before running the seed.");
+}
 
 // --- Caseload filler patients ----------------------------------------------------
 // Sam is the fully-worked demo patient (receipts, logs, messages, invite, cycle history —
