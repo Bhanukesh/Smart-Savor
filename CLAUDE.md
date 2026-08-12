@@ -66,11 +66,21 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
     entire invite-delivery mechanism now — no Resend, no Twilio; Clerk sends the email itself.
     A patient's SMS/OTP path was tried and deliberately dropped (A2P 10DLC registration
     friction) — see git history if resurrecting it later.
-  - **`mobile/`'s own signup screen still uses the old, unverified `{phone, firstName,
-    lastName}` shape directly against `/api/invite/redeem`** (unchanged, kept for backward
-    compatibility) — it hasn't been moved to real verification; that needs dedicated
-    Expo-specific research (in-app browser / redirect patterns) before it's touched. Don't
-    assume mobile signup is verified just because web's is now.
+  - **`mobile/` now mirrors web's Google-only patient signup**, same patient Clerk app
+    (`@clerk/expo`, `mobile/app/_layout.tsx`), same `useSSO`-based flow
+    (`mobile/app/(auth)/signup.tsx` → `details.tsx`, mirroring `app/invite/signup` →
+    `app/invite/claim`). The old unverified `{phone, firstName, lastName}` path straight to
+    `/api/invite/redeem` is gone. The one real difference: mobile has no cookie jar, so it
+    can't rely on `auth()` reading a session cookie the way web's server components do —
+    `details.tsx` gets a token from Clerk's `useAuth().getToken()` and sends it as
+    `Authorization: Bearer <token>` to `/api/invite/finish`
+    (`mobile/lib/api.ts`'s `finishInviteSignup()`); the route itself needed no changes, since
+    Clerk's `auth()` already reads either a cookie or a Bearer header transparently — this is
+    the standard cross-origin pattern, not a workaround.
+  - That Bearer token only exists for the signup moment, though — once `/api/invite/finish`
+    succeeds, mobile drops back to its own `SessionProvider` (SecureStore-backed patientId,
+    `mobile/lib/session.ts`), same as before. It still has no ongoing credential for the rest
+    of the app.
   - `proxy.ts` (Next 16's renamed, Node.js-runtime middleware) gates the dietitian console
     pages (`/`, `/patients/**`, `/team`) and every dietitian-exclusive API action against a
     linked dietitian-Clerk identity, and separately requires a real patient session for
@@ -78,11 +88,13 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
     pages resolve *which* patient/dietitian from their respective session
     (`getSessionPatient()` in `lib/data.ts`, `getSessionDietitian()` in `lib/auth/dietitian.ts`),
     never a guess.
-  - The shared `/api/patients/[id]/*` routes (called by both `/me/*` and `mobile/`) still
-    don't verify a *patient* session belongs to that `:id` — a documented, accepted gap, since
-    closing it means giving `mobile/` a real bearer token first (it has no cookie jar today;
-    see `mobile/lib/session.ts`'s comments). There is deliberately **no public patient
-    self-signup** — invite code first, always.
+  - The shared `/api/patients/[id]/*` routes (called by both `/me/*` and `mobile/`, for
+    everything *after* signup) still don't verify a *patient* session belongs to that `:id` —
+    a documented, accepted gap, unrelated to the signup fix above (that Bearer token is
+    Clerk's, scoped to `/api/invite/finish` only, not a general-purpose credential these
+    routes could check). Closing this gap means giving `mobile/` a real bearer token for
+    *every* request, not just signup — a bigger, separate change. There is deliberately
+    **no public patient self-signup** — invite code first, always.
   - The demo dietitian's sign-in identity is whatever real Google/Microsoft email
     `DIETITIAN_BOOTSTRAP_EMAIL` is set to (see `.env`/deploy secrets) — `prisma/seed.ts` links
     that email to the seeded "Maria, RD" practice data on first Clerk sign-in. It has to be a
