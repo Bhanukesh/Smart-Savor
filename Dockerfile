@@ -20,10 +20,13 @@ RUN apk add --no-cache openssl
 COPY package*.json ./
 RUN npm ci --ignore-scripts
 COPY . .
-# Clerk's publishable key is inlined into the client JS bundle at build time — a runtime env
-# var on the Container App does nothing for it (see .claude/skills/add-env-var Route C).
+# Clerk's publishable keys are inlined into the client JS bundle at build time — a runtime env
+# var on the Container App does nothing for them (see .claude/skills/add-env-var Route C).
+# Two separate Clerk apps (dietitian, patient — see CLAUDE.md), two separate keys.
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_PATIENT_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_PATIENT_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_PATIENT_CLERK_PUBLISHABLE_KEY
 RUN npx prisma generate && npm run build
 
 # ---- runtime stage ----
