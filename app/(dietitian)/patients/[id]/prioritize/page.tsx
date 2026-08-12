@@ -19,6 +19,7 @@ export default async function PatientPrioritizePage({ params }: { params: Promis
     <>
       <Topbar
         context="Dietitian console"
+        showAccountMenu
         who={
           <>
             <i className="ph ph-stethoscope ic-primary" /> {patient.dietitianName}

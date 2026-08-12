@@ -127,6 +127,10 @@ model Patient {
   dietitianId  String?  @map("dietitian_id") @db.Uuid
   dietitian    Dietitian? @relation(fields: [dietitianId], references: [id])
   name         String
+  // Dietitian-entered, so the "Send invite" panel can resend the Clerk invitation email later
+  // without asking again — distinct from User.email, the patient's own address once they've
+  // actually signed up (normally the same, but this is a delivery address, not a credential).
+  email        String?
   age          Int?
   conditions   String[] @default([])
   // Dietary preferences (ER design 3.3): food-sourcing agent reads these as a simple list.
@@ -504,15 +508,22 @@ model PatientInvite {
   @@map("patient_invites")
 }
 
-// Dietitian rows carry passwordHash; patient rows carry auth0UserId — mutually exclusive.
-// Prisma can't express the CHECK constraint declaratively; it's hand-added to the generated
-// migration SQL (see prisma/migrations/.../migration.sql) and enforced again in lib/auth/.
+// Dietitian rows carry clerkUserId, linked via the dietitian Clerk app (Restricted mode —
+// lib/auth/dietitian.ts). Patient rows carry googleUserId, linked via a second, separate,
+// unrestricted Clerk app (lib/patientClerk.ts) — kept apart from the dietitian one so patients
+// (already gated by their invite code) never need Restricted mode, and turning it off there
+// never has to be considered. phone is unused going forward (phone/OTP signup was tried and
+// dropped — see git history) — kept nullable, no data to lose. passwordHash is likewise legacy
+// from the pre-Clerk dietitian login. The role/dietitianId/patientId shape constraint is
+// enforced by a hand-added CHECK in the generated migration SQL
+// (see prisma/migrations/.../migration.sql), unaffected by any of this.
 model User {
   id                       String    @id @default(uuid()) @db.Uuid
   email                    String?   @unique
   phone                    String?   @unique
   passwordHash             String?   @map("password_hash")
-  auth0UserId              String?   @unique @map("auth0_user_id")
+  googleUserId             String?   @unique @map("google_user_id")
+  clerkUserId              String?   @unique @map("clerk_user_id")
   role                     UserRole
   dietitianId              String?   @unique @map("dietitian_id") @db.Uuid
   dietitian                Dietitian? @relation(fields: [dietitianId], references: [id])

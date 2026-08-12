@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 // Messages live under each patient's own profile (PatientLocalNav), not as global tabs here.
 const RX_LINKS = [
   { href: "/", label: "Patients", icon: "ph-users-three" },
+  { href: "/team", label: "Team", icon: "ph-user-plus" },
 ];
 
 const ME_LINKS = [

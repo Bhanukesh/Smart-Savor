@@ -35,6 +35,7 @@ export default async function CaseloadPage() {
     <>
       <Topbar
         context="Dietitian console"
+        showAccountMenu
         who={
           <>
             <i className="ph ph-stethoscope ic-primary" /> {patients[0]?.dietitianName ?? "Dietitian"}
