@@ -1,14 +1,17 @@
 /**
  * On-device session — the mobile equivalent of the web app's httpOnly cookie set by
- * lib/auth/session.ts in the Next.js app. There is no bearer token: POST /api/invite/redeem
- * never returns one, and the shared /api/patients/[id]/* routes still don't verify a session
- * against the patient :id in the URL (a documented, accepted gap — proxy.ts's
- * PATIENT_SAFE_PATTERNS lets these through without checking the caller *is* that patient).
- * The web app's own /me/* pages no longer have this problem — proxy.ts now requires a real
- * patient session to render them, and each page resolves the patient from that session
- * (lib/data.ts's getSessionPatient()), not a guess. This app's "auth" is still: redeem an
- * invite code, store the returned patientId, use it directly in API calls — real work,
- * deferred, not a new gap introduced here.
+ * lib/auth/session.ts in the Next.js app. Signup itself is real now (app/(auth)/signup.tsx +
+ * details.tsx, same Google-via-Clerk flow as web's app/invite/*) — but the Clerk bearer token
+ * that proves that only lives for the signup request itself
+ * (POST /api/invite/finish, see lib/api.ts's finishInviteSignup()). Once that call returns a
+ * patientId, this file takes over, and from here on it's the same as before: no bearer token,
+ * no ongoing credential. The shared /api/patients/[id]/* routes still don't verify a session
+ * against the patient :id in the URL for any *subsequent* call (a documented, accepted gap —
+ * proxy.ts's PATIENT_SAFE_PATTERNS lets these through without checking the caller *is* that
+ * patient). The web app's own /me/* pages no longer have this problem — proxy.ts now requires
+ * a real patient session to render them, and each page resolves the patient from that session
+ * (lib/data.ts's getSessionPatient()), not a guess. Closing the same gap here means giving
+ * mobile/ a real bearer token for *every* request, not just signup — separate, bigger work.
  *
  * expo-secure-store (iOS Keychain / Android Keystore) is used anyway, even though the backend
  * doesn't treat this as a real credential yet: whoever holds this patientId can read/write

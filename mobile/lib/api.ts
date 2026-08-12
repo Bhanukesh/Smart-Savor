@@ -31,11 +31,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 // --- Invite / identity ------------------------------------------------------------------
 
-export async function redeemInvite(
-  code: string,
-  identity: { email?: string; phone?: string; firstName?: string; lastName?: string },
+/** The Google sign-in path (app/(auth)/signup.tsx + details.tsx) — same endpoint the web app's
+ * confirm-details step calls. The web version relies on a cookie-based session; this one sends
+ * the Clerk session token as a Bearer header instead (the standard cross-origin pattern —
+ * Clerk's own auth() on the server reads either transparently). `clerkToken` comes from the
+ * signed-in Clerk session's getToken(), not this app's own patient session (that only exists
+ * after this call succeeds). */
+export async function finishInviteSignup(
+  clerkToken: string,
+  data: { code: string; firstName: string; lastName?: string; age: number },
 ): Promise<{ patientId: string; patientFirstName: string }> {
-  return request("/api/invite/redeem", { method: "POST", body: JSON.stringify({ code, identity }) });
+  return request("/api/invite/finish", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${clerkToken}` },
+    body: JSON.stringify(data),
+  });
 }
 
 // --- Patient / dashboard -----------------------------------------------------------------

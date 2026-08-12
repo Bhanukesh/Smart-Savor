@@ -10,7 +10,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://smartsavor.apps.human-angle.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://smartsavor.apps.human-angle.com",
+        "EXPO_PUBLIC_PATIENT_CLERK_PUBLISHABLE_KEY": "pk_test_dG91Z2gtbGFkeWJ1Zy0yOC5jbGVyay5hY2NvdW50cy5kZXYk"
       }
     }
   },
