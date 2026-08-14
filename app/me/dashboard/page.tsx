@@ -2,6 +2,7 @@ import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import BodyClass from "@/components/BodyClass";
+import DayTrackRow from "@/components/DayTrackRow";
 import { getSessionPatient, computeDashboard, getWeightCheckIns } from "@/lib/data";
 import { notFound } from "next/navigation";
 
@@ -68,6 +69,7 @@ export default async function DashboardPage() {
                   <div className="target" style={{ left: "100%" }} />
                 </div>
                 <div className="cap">{g.caption}</div>
+                <DayTrackRow history={g.history} />
               </div>
             );
           })}

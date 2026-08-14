@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from "react-native";
 import { colors } from "../lib/theme";
+import DayTrackRow from "./DayTrackRow";
 import type { DashboardGauge } from "../lib/types";
 
 /** Mirrors the web app's .gauge/.track/.fill: a labeled progress bar with a target tick,
@@ -24,6 +25,7 @@ export default function Gauge({ gauge }: { gauge: DashboardGauge }) {
         <View style={[styles.target, { left: "100%" }]} />
       </View>
       <Text style={styles.caption}>{gauge.caption}</Text>
+      <DayTrackRow history={gauge.history} />
     </View>
   );
 }

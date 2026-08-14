@@ -12,6 +12,7 @@ export default function PatientLocalNav({ patientId, patientName }: { patientId:
     { href: base, label: "Overview", icon: "ph-identification-badge" },
     { href: `${base}/prioritize`, label: "Focus Set", icon: "ph-list-numbers" },
     { href: `${base}/ratify`, label: "Swap Menu", icon: "ph-check-square" },
+    { href: `${base}/food-log`, label: "Food Log", icon: "ph-fork-knife" },
     { href: `${base}/messages`, label: "Messages", icon: "ph-chat-circle-dots" },
   ];
 

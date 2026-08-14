@@ -3,7 +3,7 @@ import PortalNav from "@/components/PortalNav";
 import PatientLocalNav from "@/components/PatientLocalNav";
 import ConfirmFocusSet from "@/components/ConfirmFocusSet";
 import FocusSetBoard from "@/components/FocusSetBoard";
-import { getPatient, getFocusSet, getCycleConfirmedAt } from "@/lib/data";
+import { getPatient, getFocusSet, getCycleConfirmedAt, computeDashboard } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,7 @@ export default async function PatientPrioritizePage({ params }: { params: Promis
   if (!patient) notFound();
   const focus = await getFocusSet(id);
   const confirmedAt = await getCycleConfirmedAt(id);
+  const gauges = await computeDashboard(id);
 
   return (
     <>
@@ -43,7 +44,7 @@ export default async function PatientPrioritizePage({ params }: { params: Promis
           <h2>
             <i className="ph ph-list-numbers ic-primary" /> Ranked focus set
           </h2>
-          <FocusSetBoard patientId={patient.id} initialFocus={focus} />
+          <FocusSetBoard patientId={patient.id} initialFocus={focus} gauges={gauges} />
           <ConfirmFocusSet patientId={patient.id} initialConfirmedAt={confirmedAt} />
         </div>
 

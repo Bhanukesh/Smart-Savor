@@ -50,6 +50,8 @@ export interface NutrientGap {
 
 /** focus_set_items joined to nutrient_gaps — the D1.5 ranked set */
 export interface FocusItem {
+  /** the FocusSetItem row's id — update/delete route on it directly */
+  id: string;
   rank: number;
   gap: NutrientGap;
   why: string;
@@ -94,8 +96,16 @@ export interface ChoiceResult {
   gapRemaining: number;
 }
 
+/** one day's on-track/off-track status in a gauge's last-7-days history */
+export interface DashboardGaugeDay {
+  date: string;
+  onTrack: boolean;
+}
+
 /** patient dashboard gauge (intake toward target, from logged foods) */
 export interface DashboardGauge {
+  /** the underlying NutrientGap id — lets a focus-set item match itself to its own gauge */
+  gapId: string;
   label: string;
   icon: string;
   current: number;
@@ -104,6 +114,8 @@ export interface DashboardGauge {
   unit: string;
   inRange: boolean;
   caption: string;
+  /** last 7 days, oldest first — cumulative baseline+logged as of that day vs target */
+  history: DashboardGaugeDay[];
 }
 
 /** cycle_outcomes — one cycle's baseline->retest for one nutrient */

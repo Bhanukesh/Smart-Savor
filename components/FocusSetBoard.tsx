@@ -1,21 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FocusItem, NutrientGap, NutrientKey, Severity } from "@/lib/types";
+import DayTrackRow from "@/components/DayTrackRow";
+import type { DashboardGauge, FocusItem, NutrientGap, NutrientKey, Severity } from "@/lib/types";
 
 type CreatableNutrient = { nutrient: NutrientKey; label: string; unit: string };
 
 export default function FocusSetBoard({
   patientId,
   initialFocus,
+  gauges,
 }: {
   patientId: string;
   initialFocus: FocusItem[];
+  /** last-7-days on-track history per gap, matched by gapId — only present once a gap has a
+   * ratified approved list (same condition computeDashboard uses), so not every row gets one. */
+  gauges: DashboardGauge[];
 }) {
   const [focus, setFocus] = useState(initialFocus);
   const [overriding, setOverriding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  const [editingGapId, setEditingGapId] = useState<string | null>(null);
+  const [draftWhy, setDraftWhy] = useState("");
+  const [draftCurrent, setDraftCurrent] = useState("");
+  const [draftTarget, setDraftTarget] = useState("");
+  const [draftSeverity, setDraftSeverity] = useState<Severity>("moderate");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingGapId, setDeletingGapId] = useState<string | null>(null);
 
   const [adding, setAdding] = useState(false);
   const [available, setAvailable] = useState<NutrientGap[] | null>(null);
@@ -137,7 +150,55 @@ export default function FocusSetBoard({
     setOverriding(false);
   }
 
+  function startEdit(f: FocusItem) {
+    setEditingGapId(f.gap.id);
+    setDraftWhy(f.why);
+    setDraftCurrent(String(f.gap.currentValue));
+    setDraftTarget(String(f.gap.targetValue));
+    setDraftSeverity(f.gap.severity);
+  }
+
+  function cancelEdit() {
+    setEditingGapId(null);
+  }
+
+  async function saveEdit(gapId: string) {
+    const current = Number(draftCurrent);
+    const target = Number(draftTarget);
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`/api/patients/${patientId}/focus-set/items/${gapId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          why: draftWhy,
+          ...(Number.isFinite(current) && { currentValue: current }),
+          ...(Number.isFinite(target) && target > 0 && { targetValue: target }),
+          severity: draftSeverity,
+        }),
+      });
+      if (res.ok) {
+        setFocus(await res.json());
+        setEditingGapId(null);
+      }
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function deleteItem(gapId: string) {
+    if (!window.confirm("Remove this item from the focus set? The underlying gap stays on file and can be added back later.")) return;
+    setDeletingGapId(gapId);
+    try {
+      const res = await fetch(`/api/patients/${patientId}/focus-set/items/${gapId}`, { method: "DELETE" });
+      if (res.ok) setFocus(await res.json());
+    } finally {
+      setDeletingGapId(null);
+    }
+  }
+
   function row(f: FocusItem, i: number) {
+    const editing = editingGapId === f.gap.id;
     return (
       <div
         className="row"
@@ -164,18 +225,71 @@ export default function FocusSetBoard({
             {f.pairWith && f.rank !== 1 && !f.excluded && <span className="chip blue">Pairs with #1</span>}
             {f.excluded && <span className="chip amber">Flagged — not food-first</span>}
           </div>
-          <div className="meta">
-            Target {f.gap.targetValue} {f.gap.unit}/day · current {f.gap.currentValue} {f.gap.unit} ·
-            gap {f.gap.targetValue - f.gap.currentValue} {f.gap.unit}. Reason: {f.why}
-            {f.pairWith && (
-              <>
-                <br />
-                Pairs: {f.pairWith}
-                {f.conflictsWith && <> · Conflicts: {f.conflictsWith}</>}
-              </>
-            )}
-            {f.excludeReason && <> {f.excludeReason}</>}
-          </div>
+          {editing ? (
+            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="number" step="0.1" className="field" autoFocus
+                  value={draftCurrent} onChange={(e) => setDraftCurrent(e.target.value)}
+                  style={{ width: 100 }} aria-label="Current value"
+                />
+                <input
+                  type="number" step="0.1" min="0.1" className="field"
+                  value={draftTarget} onChange={(e) => setDraftTarget(e.target.value)}
+                  style={{ width: 100 }} aria-label="Target value"
+                />
+                <select
+                  className="field" value={draftSeverity}
+                  onChange={(e) => setDraftSeverity(e.target.value as Severity)}
+                  aria-label="Severity" style={{ width: 120 }}
+                >
+                  <option value="severe">Severe</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="mild">Mild</option>
+                </select>
+              </div>
+              <textarea
+                className="field" rows={2} value={draftWhy}
+                onChange={(e) => setDraftWhy(e.target.value)}
+                placeholder="Why this gap belongs in this cycle's focus set…"
+              />
+              <div className="btn-row">
+                <button className="btn sm" disabled={savingEdit} onClick={cancelEdit}>Cancel</button>
+                <button className="btn sm primary" disabled={savingEdit} onClick={() => saveEdit(f.gap.id)}>
+                  {savingEdit ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="meta">
+                Target {f.gap.targetValue} {f.gap.unit}/day · current {f.gap.currentValue} {f.gap.unit} ·
+                gap {f.gap.targetValue - f.gap.currentValue} {f.gap.unit}. Reason: {f.why}
+                {f.pairWith && (
+                  <>
+                    <br />
+                    Pairs: {f.pairWith}
+                    {f.conflictsWith && <> · Conflicts: {f.conflictsWith}</>}
+                  </>
+                )}
+                {f.excludeReason && <> {f.excludeReason}</>}
+              </div>
+              {!f.excluded && (() => {
+                const gauge = gauges.find((g) => g.gapId === f.gap.id);
+                return gauge ? <DayTrackRow history={gauge.history} /> : null;
+              })()}
+              {!overriding && !f.excluded && (
+                <div className="btn-row" style={{ marginTop: 8 }}>
+                  <button className="btn sm" onClick={() => startEdit(f)}>
+                    <i className="ph ph-pencil-simple" /> Edit
+                  </button>
+                  <button className="btn sm" disabled={deletingGapId === f.gap.id} onClick={() => deleteItem(f.gap.id)}>
+                    <i className="ph ph-trash" /> {deletingGapId === f.gap.id ? "Removing…" : "Remove"}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     );
