@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-type Status =
-  | { hasAccount: true }
-  | { hasAccount: false; invite: { code: string; expiresAt: string; redeemedAt: string | null } | null };
+type Status = {
+  hasAccount: boolean;
+  invite: { code: string; expiresAt: string; redeemedAt: string | null } | null;
+};
 
 export default function InvitePanel({ patientId, patientFirstName }: { patientId: string; patientFirstName: string }) {
   const [status, setStatus] = useState<Status | null>(null);
@@ -43,21 +44,27 @@ export default function InvitePanel({ patientId, patientFirstName }: { patientId
 
   if (status === null) return null;
 
-  if (status.hasAccount) {
+  const { hasAccount, invite } = status;
+  const expired = invite ? new Date(invite.expiresAt) < new Date() : false;
+
+  if (hasAccount) {
     return (
       <div className="card">
         <h2>
           <i className="ph ph-user-check ic-primary" /> Account
         </h2>
-        <p className="sub" style={{ margin: 0 }}>
-          {patientFirstName}{" "}has already signed up and is using the app.
+        <p className="sub" style={{ margin: invite ? "0 0 10px" : 0 }}>
+          {patientFirstName} has already signed up and is using the app.
         </p>
+        {invite && (
+          <p className="sub" style={{ margin: 0, fontSize: 12.5 }}>
+            Signed up with code <code style={{ fontWeight: 700, letterSpacing: "0.04em" }}>{invite.code}</code>
+            {invite.redeemedAt && <> on {new Date(invite.redeemedAt).toLocaleDateString()}</>}
+          </p>
+        )}
       </div>
     );
   }
-
-  const invite = status.invite;
-  const expired = invite ? new Date(invite.expiresAt) < new Date() : false;
 
   return (
     <div className="card">

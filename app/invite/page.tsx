@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import InviteCodeForm from "@/components/InviteCodeForm";
 
@@ -19,6 +20,9 @@ export default async function InvitePage({ searchParams }: { searchParams: Promi
           dietitian.
         </p>
         <InviteCodeForm initialCode={code} />
+        <p className="sub" style={{ textAlign: "center", marginTop: 16 }}>
+          Already signed up? <Link href="/invite/signin">Sign in</Link>
+        </p>
       </main>
     </>
   );

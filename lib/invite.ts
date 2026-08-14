@@ -71,28 +71,48 @@ export async function redeemInvite(
   return { ok: true, patientId: invite.patientId, patientFirstName: invite.patient.name.split(" ")[0] };
 }
 
+export type SignInResult =
+  | { ok: true; patientId: string; patientFirstName: string }
+  | { ok: false };
+
+/** Returning-patient sign-in — no invite code involved. A patient's invite code is single-use
+ * (redeemInvite marks it redeemedAt on first use), so logging out on mobile or losing the web
+ * session cookie previously left no way back in at all: the only entry point was /invite's code
+ * form, and a redeemed code is permanently rejected by checkInviteCode. This looks the caller's
+ * *already-verified* Clerk identity (same googleUserId redeemInvite stored at signup) up against
+ * an existing patient account and signs them back in — it never creates one. */
+export async function signInReturningPatient(googleUserId: string): Promise<SignInResult> {
+  const user = await prisma.user.findUnique({ where: { googleUserId }, include: { patient: true } });
+  if (!user || user.role !== "patient" || !user.patient) return { ok: false };
+  await createSession(user.id);
+  return { ok: true, patientId: user.patient.id, patientFirstName: user.patient.name.split(" ")[0] };
+}
+
 function randomInviteCode(patientName: string): string {
   const prefix = (patientName.split(" ")[0].match(/[A-Za-z]/g) ?? []).slice(0, 4).join("").toUpperCase() || "PT";
   const suffix = crypto.randomBytes(3).toString("hex").toUpperCase();
   return `${prefix}-${suffix}`;
 }
 
-export type InviteStatus =
-  | { hasAccount: true }
-  | { hasAccount: false; invite: { code: string; expiresAt: string; redeemedAt: string | null } | null };
+export type InviteStatus = {
+  hasAccount: boolean;
+  invite: { code: string; expiresAt: string; redeemedAt: string | null } | null;
+};
 
-/** Dietitian-facing view of a patient's onboarding state — for the "Send invite" panel on
- * their profile. Once a User row exists (invite redeemed), there's nothing left to invite. */
+/** Dietitian-facing view of a patient's onboarding state — for the "Invite" panel on their
+ * profile. Still surfaces the code/redemption date once a User row exists (invite redeemed) —
+ * it used to disappear entirely at that point, which read as a bug to a dietitian checking
+ * whether a code they'd just handed out actually got used (see InvitePanel.tsx). */
 export async function getInviteStatus(patientId: string): Promise<InviteStatus | null> {
   const patient = await prisma.patient.findUnique({
     where: { id: patientId },
     include: { user: true, invite: true },
   });
   if (!patient) return null;
-  if (patient.user) return { hasAccount: true };
-  if (!patient.invite) return { hasAccount: false, invite: null };
+  const hasAccount = !!patient.user;
+  if (!patient.invite) return { hasAccount, invite: null };
   return {
-    hasAccount: false,
+    hasAccount,
     invite: {
       code: patient.invite.code,
       expiresAt: patient.invite.expiresAt.toISOString(),

@@ -37,6 +37,9 @@ export default function InviteCodeScreen() {
         />
         <Button label="Continue" variant="primary" onPress={submit} disabled={!code.trim()} />
       </Card>
+      <Text style={styles.signInLink} onPress={() => router.push("/(auth)/signin")}>
+        Already have an account? Sign in
+      </Text>
       <Note>
         Private &amp; dietitian-backed — nothing reaches you without your dietitian&apos;s sign-off.
       </Note>
@@ -49,4 +52,8 @@ const styles = StyleSheet.create({
   brandText: { fontSize: 22, fontWeight: "800", color: colors.primaryDeep, letterSpacing: -0.3 },
   h1: { fontSize: 20, fontWeight: "800", color: colors.foreground, marginBottom: 6 },
   sub: { fontSize: 14, color: colors.mutedForeground, marginBottom: spacing.lg },
+  signInLink: {
+    textAlign: "center", color: colors.primaryDeep, fontWeight: "700", fontSize: 14,
+    marginTop: spacing.lg,
+  },
 });

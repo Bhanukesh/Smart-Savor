@@ -48,6 +48,20 @@ export async function finishInviteSignup(
   });
 }
 
+/** Returning-patient sign-in — same Google identity as finishInviteSignup, but for someone who
+ * already has an account (logged out, reinstalled, new device — see app/(auth)/signin.tsx).
+ * No invite code: looks the Clerk identity up against an existing account instead of redeeming
+ * one. Throws (via request()'s !res.ok path) with a 404 if this Google sign-in has never
+ * completed a signup — the caller should fall back to the invite-code flow in that case. */
+export async function signInReturningPatient(
+  clerkToken: string,
+): Promise<{ patientId: string; patientFirstName: string }> {
+  return request("/api/invite/signin", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${clerkToken}` },
+  });
+}
+
 // --- Patient / dashboard -----------------------------------------------------------------
 
 export async function getPatient(patientId: string): Promise<Patient> {
