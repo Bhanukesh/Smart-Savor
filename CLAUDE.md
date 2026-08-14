@@ -95,6 +95,16 @@ product spec and `docs/Artifacts/demo-script.md` for the walkthrough narrative.
     routes could check). Closing this gap means giving `mobile/` a real bearer token for
     *every* request, not just signup — a bigger, separate change. There is deliberately
     **no public patient self-signup** — invite code first, always.
+  - **Returning-patient sign-in** (`lib/invite.ts`'s `signInReturningPatient()`,
+    `/api/invite/signin`) is the one exception to "invite code first" — and it isn't really an
+    exception, since it never creates an account. A patient's invite code is single-use
+    (`redeemInvite` marks it redeemed), so logging out — the only session patients have, on
+    either platform — previously left no way back in at all. This looks the caller's
+    already-verified patient-Clerk identity (the same `googleUserId` `redeemInvite` stored at
+    signup) up against an existing account and signs them back in; a Google sign-in with no
+    matching account still falls back to the invite-code flow. Web: `/invite/signin` (a
+    "Sign in" link from `/invite`) → `/invite/welcome-back`. Mobile: `(auth)/signin.tsx` (a
+    "Sign in" link from the invite-code screen), same `useSSO` pattern as signup.
   - The demo dietitian's sign-in identity is whatever real Google/Microsoft email
     `DIETITIAN_BOOTSTRAP_EMAIL` is set to (see `.env`/deploy secrets) — `prisma/seed.ts` links
     that email to the seeded "Maria, RD" practice data on first Clerk sign-in. It has to be a
