@@ -41,6 +41,7 @@ export interface NutrientGap {
 }
 
 export interface FocusItem {
+  id: string;
   rank: number;
   gap: NutrientGap;
   why: string;
@@ -81,7 +82,14 @@ export interface ChoiceResult {
   gapRemaining: number;
 }
 
+/** one day's on-track/off-track status in a gauge's last-7-days history */
+export interface DashboardGaugeDay {
+  date: string;
+  onTrack: boolean;
+}
+
 export interface DashboardGauge {
+  gapId: string;
   label: string;
   icon: string;
   current: number;
@@ -90,6 +98,8 @@ export interface DashboardGauge {
   unit: string;
   inRange: boolean;
   caption: string;
+  /** last 7 days, oldest first — cumulative baseline+logged as of that day vs target */
+  history: DashboardGaugeDay[];
 }
 
 export interface CycleOutcomeEntry {

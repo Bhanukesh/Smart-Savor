@@ -1,11 +1,13 @@
-import { StyleSheet } from "react-native";
+import { Image, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../lib/theme";
 
 // Mirrors the web app's .brand .mark exactly (app/globals.css): 135deg gradient tile,
-// accent -> primary-strong, white glyph, soft blue glow. Same brand mark, same math, ported
-// to React Native's LinearGradient since CSS gradients don't exist here.
+// accent -> primary-strong, white glyph, soft blue glow. The glyph itself is
+// assets/leaf-mark.png (a trimmed crop of the app icon's foreground layer) rather than an
+// icon-font glyph — @expo/vector-icons has no Phosphor set, and Ionicons' "leaf" is a visibly
+// different shape from the web app's Phosphor ph-fill ph-leaf, which is why this mark used to
+// look like a different logo depending on platform.
 export default function BrandMark({ size = 32 }: { size?: number }) {
   return (
     <LinearGradient
@@ -23,7 +25,11 @@ export default function BrandMark({ size = 32 }: { size?: number }) {
         },
       ]}
     >
-      <Ionicons name="leaf" size={size * 0.53} color={colors.primaryForeground} />
+      <Image
+        source={require("../assets/leaf-mark.png")}
+        style={{ width: size * 0.53, height: size * 0.53, tintColor: colors.primaryForeground }}
+        resizeMode="contain"
+      />
     </LinearGradient>
   );
 }

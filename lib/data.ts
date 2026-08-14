@@ -267,6 +267,7 @@ export async function getFocusSet(patientId: string): Promise<FocusItem[]> {
     orderBy: { rank: "asc" },
   });
   return items.map((f) => ({
+    id: f.id,
     rank: f.rank,
     gap: serializeGap(f.nutrientGap),
     why: f.why,
@@ -347,6 +348,56 @@ export async function addFocusItem(
     await prisma.approvedList.create({ data: { patientId, nutrientGapId, status: "draft" } });
   }
 
+  return getFocusSet(patientId);
+}
+
+/** Dietitian's "Edit" on an already-ranked focus item — the update half of focus-set CRUD.
+ * `why` edits the FocusSetItem row; currentValue/targetValue/severity edit the underlying
+ * NutrientGap (same fields "Track a new nutrient gap" sets at creation, so an item created
+ * either way is editable the same way afterward). */
+export async function updateFocusItem(
+  patientId: string,
+  nutrientGapId: string,
+  edits: { why?: string; currentValue?: number; targetValue?: number; severity?: Severity },
+): Promise<FocusItem[] | null> {
+  const cycle = await ensureActiveCycle(patientId);
+  if (!cycle) return null;
+  const item = await prisma.focusSetItem.findFirst({
+    where: { cycleId: cycle.id, version: cycle.focusSetVersion, nutrientGapId },
+  });
+  if (!item) return null;
+
+  if (edits.why !== undefined) {
+    await prisma.focusSetItem.update({ where: { id: item.id }, data: { why: edits.why.trim() || item.why } });
+  }
+  if (edits.currentValue !== undefined || edits.targetValue !== undefined || edits.severity !== undefined) {
+    await prisma.nutrientGap.update({
+      where: { id: nutrientGapId },
+      data: {
+        ...(edits.currentValue !== undefined && { currentValue: edits.currentValue }),
+        ...(edits.targetValue !== undefined && { targetValue: edits.targetValue }),
+        ...(edits.severity !== undefined && { severity: edits.severity }),
+      },
+    });
+  }
+
+  return getFocusSet(patientId);
+}
+
+/** Dietitian's "Remove" on a ranked focus item — the delete half of focus-set CRUD. Deletes the
+ * FocusSetItem row itself (not a soft "excluded" flag — that's a distinct, clinical-screening
+ * concept driven elsewhere, e.g. seed data flagging lipid/glycemic markers as not food-first;
+ * see prioritize/page.tsx's note). The underlying NutrientGap is untouched, so a removed item
+ * can be brought back later via "Add focus item"'s existing-gaps picker. */
+export async function removeFocusItem(patientId: string, nutrientGapId: string): Promise<FocusItem[] | null> {
+  const cycle = await ensureActiveCycle(patientId);
+  if (!cycle) return null;
+  const item = await prisma.focusSetItem.findFirst({
+    where: { cycleId: cycle.id, version: cycle.focusSetVersion, nutrientGapId },
+  });
+  if (!item) return null;
+
+  await prisma.focusSetItem.delete({ where: { id: item.id } });
   return getFocusSet(patientId);
 }
 
@@ -631,6 +682,8 @@ const GAUGE_ICON: Partial<Record<NutrientKey, string>> = {
   sodium: "ph-drop",
 };
 
+const HISTORY_DAYS = 7;
+
 /**
  * Patient dashboard gauges — intake toward target, computed from real ConsumptionEvents.
  * For each active (non-excluded) focus-set nutrient: baseline = the cycle's recorded
@@ -639,6 +692,15 @@ const GAUGE_ICON: Partial<Record<NutrientKey, string>> = {
  * is read from the patient's own ratified ApprovedListItem.amountPerServing for that food
  * (the same per-serving math the swap screen already computed), not recomputed from scratch —
  * a logged food only counts if it's on the ratified list for that gap.
+ *
+ * Also returns a per-gauge `history`: the same baseline+logged running total, bucketed by
+ * calendar day across the last 7 days (today included) — the on-track/off-track day markers on
+ * the dashboard and the dietitian's focus set. `consumedDate` is a `@db.Date` column (already
+ * calendar-day granular), so bucketing by calendar day here is exact, not an approximation.
+ *
+ * Per-item work runs in parallel (Promise.all) rather than a sequential for-of loop — with N
+ * focus items this used to be 2N sequential round trips, which is what made this endpoint feel
+ * slow to render even though the underlying data was already correct.
  */
 export async function computeDashboard(patientId: string): Promise<DashboardGauge[]> {
   const cycle = await prisma.cycle.findFirst({ where: { patientId, status: "active" }, orderBy: { startDate: "desc" } });
@@ -655,42 +717,60 @@ export async function computeDashboard(patientId: string): Promise<DashboardGaug
   const baselineByGap = new Map(outcomes.map((o) => [o.nutrientGapId, num(o.baselineValue)]));
 
   const since = new Date();
-  since.setDate(since.getDate() - 7);
+  since.setHours(0, 0, 0, 0);
+  since.setDate(since.getDate() - (HISTORY_DAYS - 1));
 
-  const gauges: DashboardGauge[] = [];
-  for (const item of focusItems) {
-    const gap = item.nutrientGap;
-    const baseline = baselineByGap.get(gap.id) ?? num(gap.currentValue);
+  const gauges = await Promise.all(
+    focusItems.map(async (item): Promise<DashboardGauge | null> => {
+      const gap = item.nutrientGap;
+      const baseline = baselineByGap.get(gap.id) ?? num(gap.currentValue);
 
-    const approvedList = await prisma.approvedList.findUnique({
-      where: { patientId_nutrientGapId: { patientId, nutrientGapId: gap.id } },
-      include: { items: { where: { status: "approved" } } },
-    });
-    const amountByFdc = new Map(
-      (approvedList?.items ?? [])
-        .filter((i): i is typeof i & { fdcId: string } => !!i.fdcId)
-        .map((i) => [i.fdcId, num(i.amountPerServing)]),
-    );
-    if (amountByFdc.size === 0) continue; // nothing ratified for this gap yet — no gauge to show
+      const approvedList = await prisma.approvedList.findUnique({
+        where: { patientId_nutrientGapId: { patientId, nutrientGapId: gap.id } },
+        include: { items: { where: { status: "approved" } } },
+      });
+      const amountByFdc = new Map(
+        (approvedList?.items ?? [])
+          .filter((i): i is typeof i & { fdcId: string } => !!i.fdcId)
+          .map((i) => [i.fdcId, num(i.amountPerServing)]),
+      );
+      if (amountByFdc.size === 0) return null; // nothing ratified for this gap yet — no gauge to show
 
-    const events = await prisma.consumptionEvent.findMany({
-      where: { patientId, consumedDate: { gte: since }, fdcId: { in: [...amountByFdc.keys()] } },
-    });
-    const logged = events.reduce((sum, e) => sum + num(e.quantityServings) * (amountByFdc.get(e.fdcId!) ?? 0), 0);
+      const events = await prisma.consumptionEvent.findMany({
+        where: { patientId, consumedDate: { gte: since }, fdcId: { in: [...amountByFdc.keys()] } },
+      });
 
-    const current = Math.round((baseline + logged) * 10) / 10;
-    const target = num(gap.targetValue);
-    const inRange = current >= target;
-    gauges.push({
-      label: gap.label,
-      icon: GAUGE_ICON[gap.nutrient as NutrientKey] ?? "ph-drop",
-      current, target, baseline, unit: gap.unit, inRange,
-      caption: inRange
-        ? `Target met · up from ${baseline} ${gap.unit} at baseline · target ${target} ${gap.unit}/day`
-        : `Up from ${baseline} ${gap.unit} at baseline · logged foods · target ${target} ${gap.unit}/day`,
-    });
-  }
-  return gauges;
+      const loggedByDay = new Map<string, number>();
+      for (const e of events) {
+        const key = e.consumedDate.toISOString().slice(0, 10);
+        loggedByDay.set(key, (loggedByDay.get(key) ?? 0) + num(e.quantityServings) * (amountByFdc.get(e.fdcId!) ?? 0));
+      }
+
+      const target = num(gap.targetValue);
+      const history: DashboardGauge["history"] = [];
+      let running = baseline;
+      for (let i = 0; i < HISTORY_DAYS; i++) {
+        const day = new Date(since);
+        day.setDate(day.getDate() + i);
+        const key = day.toISOString().slice(0, 10);
+        running += loggedByDay.get(key) ?? 0;
+        history.push({ date: key, onTrack: running >= target });
+      }
+
+      const current = Math.round(running * 10) / 10;
+      const inRange = current >= target;
+      return {
+        gapId: gap.id,
+        label: gap.label,
+        icon: GAUGE_ICON[gap.nutrient as NutrientKey] ?? "ph-drop",
+        current, target, baseline, unit: gap.unit, inRange, history,
+        caption: inRange
+          ? `Target met · up from ${baseline} ${gap.unit} at baseline · target ${target} ${gap.unit}/day`
+          : `Up from ${baseline} ${gap.unit} at baseline · logged foods · target ${target} ${gap.unit}/day`,
+      };
+    }),
+  );
+  return gauges.filter((g): g is DashboardGauge => g !== null);
 }
 
 /** Quick Log's recent-entries list — most recent first. */
