@@ -28,6 +28,7 @@ export default function GapSwapSection({
         })
       : null,
   );
+  const [saveError, setSaveError] = useState(false);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   function preview(item: ApprovedListItem): ChoiceResult {
@@ -41,11 +42,19 @@ export default function GapSwapSection({
   function pick(item: ApprovedListItem) {
     setSelected(item.id);
     setResult(preview(item));
+    setSaveError(false);
     fetch(`/api/patients/${patientId}/choices`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ approvedListItemId: item.id, gapRemaining }),
-    }).catch(() => {});
+    })
+      .then((res) => {
+        // The card above already shows a client-computed preview so the pick feels instant —
+        // but that preview isn't proof this choice actually saved, so a failed (or non-ok)
+        // response still needs to surface, not be swallowed.
+        if (!res.ok) setSaveError(true);
+      })
+      .catch(() => setSaveError(true));
   }
 
   function onKey(e: React.KeyboardEvent, index: number) {
@@ -116,9 +125,15 @@ export default function GapSwapSection({
           <p style={{ fontSize: "13.5px", color: "var(--muted-foreground)", margin: "6px 0 12px" }}>
             closes your {result.gapRemaining} {result.gapUnit} {nutrientLabel} gap for today
           </p>
-          <div className="stamp">
-            <i className="ph-fill ph-seal-check ic-primary" /> Still within Maria&apos;s approved plan
-          </div>
+          {saveError ? (
+            <p className="note" style={{ margin: 0 }}>
+              <i className="ph ph-warning-circle ic-primary" /> This pick didn&apos;t save — tap it again to retry.
+            </p>
+          ) : (
+            <div className="stamp">
+              <i className="ph-fill ph-seal-check ic-primary" /> Still within Maria&apos;s approved plan
+            </div>
+          )}
         </div>
       )}
     </div>

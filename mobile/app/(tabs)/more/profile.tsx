@@ -22,10 +22,12 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [checkIns, setCheckIns] = useState<WeightCheckInEntry[]>([]);
   const [weight, setWeight] = useState("");
   const [loggingWeight, setLoggingWeight] = useState(false);
+  const [weightError, setWeightError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!session) return;
@@ -48,6 +50,7 @@ export default function ProfileScreen() {
     if (!session) return;
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
     try {
       await updatePreferences(session.patientId, {
         restrictions: restrictions.split(",").map((s) => s.trim()).filter(Boolean),
@@ -56,6 +59,8 @@ export default function ProfileScreen() {
         weeklyNudgeEnabled: nudgeEnabled,
       });
       setSaved(true);
+    } catch {
+      setSaveError("Couldn't save your changes — try again.");
     } finally {
       setSaving(false);
     }
@@ -66,10 +71,13 @@ export default function ProfileScreen() {
     const weightLb = Number(weight);
     if (!weightLb || weightLb <= 0) return;
     setLoggingWeight(true);
+    setWeightError(null);
     try {
       const created = await addWeightCheckIn(session.patientId, weightLb);
       setCheckIns((prev) => [...prev, created]);
       setWeight("");
+    } catch {
+      setWeightError("Couldn't log that — try again.");
     } finally {
       setLoggingWeight(false);
     }
@@ -110,6 +118,7 @@ export default function ProfileScreen() {
           <Button label={saving ? "Saving…" : "Save changes"} variant="primary" onPress={savePreferences} disabled={saving} loading={saving} />
           {saved && <Text style={styles.savedText}>✓ Saved</Text>}
         </View>
+        {saveError && <Note variant="warning">{saveError}</Note>}
       </Card>
 
       <Card>
@@ -123,6 +132,7 @@ export default function ProfileScreen() {
           </View>
           <Button label="Log" variant="primary" onPress={logWeight} disabled={loggingWeight || !weight} />
         </View>
+        {weightError && <Note variant="warning">{weightError}</Note>}
         {checkIns.length > 0 && (
           <View style={{ marginTop: 8 }}>
             <Text style={styles.sectionLabel}>LAST {checkIns.length} {checkIns.length === 1 ? "ENTRY" : "ENTRIES"}</Text>

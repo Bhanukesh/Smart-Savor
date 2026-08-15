@@ -33,6 +33,8 @@ export default function LabReportDetailScreen() {
     try {
       const updated = await confirmLabFinding(session.patientId, report.id, finding.id, confirmed);
       setReport((prev) => (prev ? { ...prev, findings: prev.findings.map((f) => (f.id === finding.id ? updated : f)) } : prev));
+    } catch {
+      // leave state as-is — buttons stay clickable to retry
     } finally {
       setBusyId(null);
     }

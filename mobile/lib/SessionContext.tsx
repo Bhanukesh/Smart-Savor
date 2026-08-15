@@ -15,10 +15,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadSession().then((s) => {
-      setSession(s);
-      setLoading(false);
-    });
+    loadSession()
+      .then((s) => setSession(s))
+      // If the on-device store itself fails to read (rare, but possible on some Android
+      // keystore states), fall back to "no session" rather than leaving `loading` true
+      // forever — that would strand the app on its loading screen with no way out.
+      .catch((err) => console.error("Failed to load session:", err))
+      .finally(() => setLoading(false));
   }, []);
 
   const signIn = useCallback(async (patientId: string, firstName: string) => {

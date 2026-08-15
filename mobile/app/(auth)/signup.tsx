@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Platform, Text, StyleSheet } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import * as AuthSession from "expo-auth-session";
@@ -19,6 +19,8 @@ WebBrowser.maybeCompleteAuthSession();
 export default function SignupScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const { startSSOFlow } = useSSO();
+  const [signingIn, setSigningIn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -29,6 +31,8 @@ export default function SignupScreen() {
   }, []);
 
   async function signInWithGoogle() {
+    setError(null);
+    setSigningIn(true);
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: "oauth_google",
@@ -37,9 +41,15 @@ export default function SignupScreen() {
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         router.push({ pathname: "/(auth)/details", params: { code } });
+        return;
       }
+      // No session and no error thrown — the user backed out of the Google flow (e.g. closed
+      // the browser tab) rather than something failing; nothing to show, just let them retry.
     } catch (err) {
-      console.error("Google sign-in error:", JSON.stringify(err, null, 2));
+      console.error("Google sign-in error:", err);
+      setError("Couldn't sign in with Google — try again in a moment.");
+    } finally {
+      setSigningIn(false);
     }
   }
 
@@ -51,7 +61,11 @@ export default function SignupScreen() {
           Same sign-in as the web app — your invite code already confirmed who you are, this
           just verifies it&apos;s really you.
         </Text>
-        <Button label="Continue with Google" variant="primary" onPress={signInWithGoogle} />
+        <Button
+          label="Continue with Google" variant="primary" onPress={signInWithGoogle}
+          disabled={signingIn} loading={signingIn}
+        />
+        {error && <Note variant="warning">{error}</Note>}
         <Note>You&apos;ll confirm your name and age on the next screen.</Note>
       </Card>
     </Screen>

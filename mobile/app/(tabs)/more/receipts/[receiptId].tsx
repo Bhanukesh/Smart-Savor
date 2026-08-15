@@ -33,6 +33,8 @@ export default function ReceiptDetailScreen() {
     try {
       const updated = await confirmReceiptLineItem(session.patientId, receipt.id, item.id, confirmed);
       setReceipt((prev) => (prev ? { ...prev, lineItems: prev.lineItems.map((i) => (i.id === item.id ? updated : i)) } : prev));
+    } catch {
+      // leave state as-is — buttons stay clickable to retry
     } finally {
       setBusyId(null);
     }

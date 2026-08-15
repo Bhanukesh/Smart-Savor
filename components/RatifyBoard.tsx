@@ -43,23 +43,28 @@ export default function RatifyBoard({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query.trim();
     if (!q) {
       setResults([]);
       setSearching(false);
+      setSearchError(false);
       return;
     }
     setSearching(true);
+    setSearchError(false);
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/grocery-items/search?q=${encodeURIComponent(q)}`);
-        if (res.ok) {
-          const data: { results: SearchResult[] } = await res.json();
-          setResults(data.results);
-        }
+        if (!res.ok) throw new Error();
+        const data: { results: SearchResult[] } = await res.json();
+        setResults(data.results);
+      } catch {
+        setSearchError(true);
       } finally {
         setSearching(false);
       }
@@ -69,17 +74,20 @@ export default function RatifyBoard({
 
   async function addFromSearch(item: SearchResult) {
     setAddingId(item.id);
+    setError(null);
     try {
       const res = await fetch(`/api/patients/${patientId}/approved-lists/${nutrient}/items`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ groceryItemId: item.id }),
       });
-      if (!res.ok) return;
+      if (!res.ok) throw new Error();
       const list: ApprovedList = await res.json();
       setItems(list.items);
       setQuery("");
       setResults([]);
+    } catch {
+      setError("Couldn't add that candidate — try again.");
     } finally {
       setAddingId(null);
     }
@@ -91,19 +99,22 @@ export default function RatifyBoard({
     edits?: { note?: string; amountPerServing?: number; unit?: string; servingDescription?: string },
   ) {
     setBusyId(itemId);
+    setError(null);
     try {
       const res = await fetch(`/api/patients/${patientId}/approved-lists/${nutrient}/items/${itemId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action, ...edits }),
       });
-      if (!res.ok) return;
+      if (!res.ok) throw new Error();
       const updated: ApprovedListItem = await res.json();
       if (action === "remove") {
         setItems((prev) => prev.filter((it) => it.id !== itemId));
       } else {
         setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)));
       }
+    } catch {
+      setError(`Couldn't ${action} that candidate — try again.`);
     } finally {
       setBusyId(null);
     }
@@ -160,6 +171,10 @@ export default function RatifyBoard({
           >
             {searching ? (
               <p className="sub" style={{ margin: "6px 8px" }}>Searching…</p>
+            ) : searchError ? (
+              <p className="sub" style={{ margin: "6px 8px" }}>
+                <i className="ph ph-warning-circle ic-primary" /> Search failed — try again.
+              </p>
             ) : results.length === 0 ? (
               <p className="sub" style={{ margin: "6px 8px" }}>No foods match &quot;{query}&quot;.</p>
             ) : (
@@ -273,6 +288,12 @@ export default function RatifyBoard({
           </div>
         );
       })}
+
+      {error && (
+        <p className="note" style={{ marginTop: 12 }}>
+          <i className="ph ph-warning-circle ic-primary" /> {error}
+        </p>
+      )}
 
       <div className="btn-row" style={{ marginTop: 16 }}>
         <Link className="btn primary" href="/me/swap">

@@ -1,19 +1,31 @@
+import { useState } from "react";
 import { Text, View, StyleSheet } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Screen from "../../components/Screen";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
+import Note from "../../components/Note";
 import { colors, spacing, radius } from "../../lib/theme";
 import { useSession } from "../../lib/SessionContext";
 
 export default function WelcomeScreen() {
   const { patientId, firstName } = useLocalSearchParams<{ patientId: string; firstName: string }>();
   const { signIn } = useSession();
+  const [continuing, setContinuing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function continueToApp() {
-    await signIn(patientId, firstName);
-    router.replace("/(tabs)");
+    setContinuing(true);
+    setError(null);
+    try {
+      await signIn(patientId, firstName);
+      router.replace("/(tabs)");
+    } catch (err) {
+      console.error("Failed to start session:", err);
+      setError("Couldn't get your plan ready — try again.");
+      setContinuing(false);
+    }
   }
 
   return (
@@ -25,7 +37,11 @@ export default function WelcomeScreen() {
           </View>
           <Text style={styles.h1}>You&apos;re in{firstName ? `, ${firstName}` : ""}</Text>
           <Text style={styles.sub}>Your account is active — here&apos;s your plan.</Text>
-          <Button label="Continue to your plan" variant="primary" onPress={continueToApp} />
+          <Button
+            label="Continue to your plan" variant="primary" onPress={continueToApp}
+            disabled={continuing} loading={continuing}
+          />
+          {error && <Note variant="warning">{error}</Note>}
         </View>
       </Card>
     </Screen>

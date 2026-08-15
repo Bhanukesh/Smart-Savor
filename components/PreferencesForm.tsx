@@ -10,10 +10,12 @@ export default function PreferencesForm({ patientId, patient }: { patientId: str
   const [nudgeEnabled, setNudgeEnabled] = useState(patient.weeklyNudgeEnabled);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function save() {
     setSaving(true);
     setSaved(false);
+    setError(null);
     try {
       const res = await fetch(`/api/patients/${patientId}/preferences`, {
         method: "PATCH",
@@ -25,7 +27,10 @@ export default function PreferencesForm({ patientId, patient }: { patientId: str
           weeklyNudgeEnabled: nudgeEnabled,
         }),
       });
-      if (res.ok) setSaved(true);
+      if (!res.ok) throw new Error();
+      setSaved(true);
+    } catch {
+      setError("Couldn't save your changes — try again.");
     } finally {
       setSaving(false);
     }
@@ -87,6 +92,11 @@ export default function PreferencesForm({ patientId, patient }: { patientId: str
           </span>
         )}
       </div>
+      {error && (
+        <p className="note" style={{ marginTop: 10 }}>
+          <i className="ph ph-warning-circle ic-primary" /> {error}
+        </p>
+      )}
     </div>
   );
 }

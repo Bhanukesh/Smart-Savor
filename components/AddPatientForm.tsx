@@ -13,6 +13,7 @@ export default function AddPatientForm() {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const router = useRouter();
 
@@ -20,16 +21,18 @@ export default function AddPatientForm() {
     const ageNum = Number(age);
     if (!name.trim() || !Number.isFinite(ageNum) || ageNum <= 0) return;
     setSubmitting(true);
+    setError(null);
     try {
       const res = await fetch("/api/patients", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: name.trim(), age: ageNum, email: email.trim() || undefined }),
       });
-      if (res.ok) {
-        setResult(await res.json());
-        router.refresh();
-      }
+      if (!res.ok) throw new Error();
+      setResult(await res.json());
+      router.refresh();
+    } catch {
+      setError("Couldn't add that patient — try again.");
     } finally {
       setSubmitting(false);
     }
@@ -51,6 +54,7 @@ export default function AddPatientForm() {
     setAge("");
     setEmail("");
     setResult(null);
+    setError(null);
     setCopied(false);
   }
 
@@ -130,6 +134,11 @@ export default function AddPatientForm() {
               placeholder="patient@example.com"
             />
           </div>
+          {error && (
+            <p className="note" style={{ marginTop: 8 }}>
+              <i className="ph ph-warning-circle ic-primary" /> {error}
+            </p>
+          )}
           <div className="btn-row" style={{ marginTop: 12 }}>
             <button className="btn" disabled={submitting} onClick={close}>Cancel</button>
             <button className="btn primary" disabled={submitting || !name.trim() || !age} onClick={submit}>

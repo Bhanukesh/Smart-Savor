@@ -21,6 +21,7 @@ export default function FocusSetBoard({
   const [overriding, setOverriding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [editingGapId, setEditingGapId] = useState<string | null>(null);
   const [draftWhy, setDraftWhy] = useState("");
@@ -32,6 +33,7 @@ export default function FocusSetBoard({
 
   const [adding, setAdding] = useState(false);
   const [available, setAvailable] = useState<NutrientGap[] | null>(null);
+  const [availableError, setAvailableError] = useState(false);
   const [pickedGapId, setPickedGapId] = useState("");
   const [why, setWhy] = useState("");
   const [submittingAdd, setSubmittingAdd] = useState(false);
@@ -40,6 +42,7 @@ export default function FocusSetBoard({
   // the patient has nothing on file for this nutrient at all yet, so there's nothing to pull
   // from (e.g. a patient with only 1-2 gaps seeded shows an empty picker above).
   const [creatable, setCreatable] = useState<CreatableNutrient[] | null>(null);
+  const [creatableError, setCreatableError] = useState(false);
   const [newNutrient, setNewNutrient] = useState("");
   const [newCurrent, setNewCurrent] = useState("");
   const [newTarget, setNewTarget] = useState("");
@@ -47,41 +50,55 @@ export default function FocusSetBoard({
   const [newWhy, setNewWhy] = useState("");
   const [submittingNew, setSubmittingNew] = useState(false);
 
-  useEffect(() => {
-    if (!adding || available !== null) return;
+  function loadAvailable() {
+    setAvailableError(false);
     fetch(`/api/patients/${patientId}/focus-set/available`)
-      .then((res) => (res.ok ? res.json() : []))
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((gaps: NutrientGap[]) => {
         setAvailable(gaps);
         setPickedGapId(gaps[0]?.id ?? "");
-      });
-  }, [adding, available, patientId]);
+      })
+      .catch(() => setAvailableError(true));
+  }
 
-  useEffect(() => {
-    if (!adding || creatable !== null) return;
+  function loadCreatable() {
+    setCreatableError(false);
     fetch(`/api/patients/${patientId}/focus-set/creatable`)
-      .then((res) => (res.ok ? res.json() : []))
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((nutrients: CreatableNutrient[]) => {
         setCreatable(nutrients);
         setNewNutrient(nutrients[0]?.nutrient ?? "");
-      });
-  }, [adding, creatable, patientId]);
+      })
+      .catch(() => setCreatableError(true));
+  }
+
+  useEffect(() => {
+    if (!adding || available !== null || availableError) return;
+    loadAvailable();
+  }, [adding, available, availableError, patientId]);
+
+  useEffect(() => {
+    if (!adding || creatable !== null || creatableError) return;
+    loadCreatable();
+  }, [adding, creatable, creatableError, patientId]);
 
   async function submitAdd() {
     if (!pickedGapId) return;
     setSubmittingAdd(true);
+    setError(null);
     try {
       const res = await fetch(`/api/patients/${patientId}/focus-set/items`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ nutrientGapId: pickedGapId, why }),
       });
-      if (res.ok) {
-        setFocus(await res.json());
-        setAvailable((prev) => (prev ? prev.filter((g) => g.id !== pickedGapId) : prev));
-        setWhy("");
-        setAdding(false);
-      }
+      if (!res.ok) throw new Error();
+      setFocus(await res.json());
+      setAvailable((prev) => (prev ? prev.filter((g) => g.id !== pickedGapId) : prev));
+      setWhy("");
+      setAdding(false);
+    } catch {
+      setError("Couldn't add that gap to the focus set — try again.");
     } finally {
       setSubmittingAdd(false);
     }
@@ -92,21 +109,23 @@ export default function FocusSetBoard({
     const target = Number(newTarget);
     if (!newNutrient || !Number.isFinite(current) || !Number.isFinite(target) || target <= 0) return;
     setSubmittingNew(true);
+    setError(null);
     try {
       const res = await fetch(`/api/patients/${patientId}/focus-set/new-item`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ nutrient: newNutrient, currentValue: current, targetValue: target, severity: newSeverity, why: newWhy }),
       });
-      if (res.ok) {
-        setFocus(await res.json());
-        setCreatable((prev) => (prev ? prev.filter((n) => n.nutrient !== newNutrient) : prev));
-        setNewCurrent("");
-        setNewTarget("");
-        setNewSeverity("moderate");
-        setNewWhy("");
-        setAdding(false);
-      }
+      if (!res.ok) throw new Error();
+      setFocus(await res.json());
+      setCreatable((prev) => (prev ? prev.filter((n) => n.nutrient !== newNutrient) : prev));
+      setNewCurrent("");
+      setNewTarget("");
+      setNewSeverity("moderate");
+      setNewWhy("");
+      setAdding(false);
+    } catch {
+      setError("Couldn't track that nutrient gap — try again.");
     } finally {
       setSubmittingNew(false);
     }
@@ -130,16 +149,18 @@ export default function FocusSetBoard({
 
   async function saveOrder() {
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch(`/api/patients/${patientId}/focus-set/reorder`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ nutrientGapIds: active.map((f) => f.gap.id) }),
       });
-      if (res.ok) {
-        setFocus(await res.json());
-        setOverriding(false);
-      }
+      if (!res.ok) throw new Error();
+      setFocus(await res.json());
+      setOverriding(false);
+    } catch {
+      setError("Couldn't save the new order — try again.");
     } finally {
       setSaving(false);
     }
@@ -166,6 +187,7 @@ export default function FocusSetBoard({
     const current = Number(draftCurrent);
     const target = Number(draftTarget);
     setSavingEdit(true);
+    setError(null);
     try {
       const res = await fetch(`/api/patients/${patientId}/focus-set/items/${gapId}`, {
         method: "PATCH",
@@ -177,10 +199,11 @@ export default function FocusSetBoard({
           severity: draftSeverity,
         }),
       });
-      if (res.ok) {
-        setFocus(await res.json());
-        setEditingGapId(null);
-      }
+      if (!res.ok) throw new Error();
+      setFocus(await res.json());
+      setEditingGapId(null);
+    } catch {
+      setError("Couldn't save those changes — try again.");
     } finally {
       setSavingEdit(false);
     }
@@ -189,9 +212,13 @@ export default function FocusSetBoard({
   async function deleteItem(gapId: string) {
     if (!window.confirm("Remove this item from the focus set? The underlying gap stays on file and can be added back later.")) return;
     setDeletingGapId(gapId);
+    setError(null);
     try {
       const res = await fetch(`/api/patients/${patientId}/focus-set/items/${gapId}`, { method: "DELETE" });
-      if (res.ok) setFocus(await res.json());
+      if (!res.ok) throw new Error();
+      setFocus(await res.json());
+    } catch {
+      setError("Couldn't remove that item — try again.");
     } finally {
       setDeletingGapId(null);
     }
@@ -300,6 +327,12 @@ export default function FocusSetBoard({
       {active.map(row)}
       {excluded.map((f) => row(f, -1))}
 
+      {error && (
+        <p className="note" style={{ marginTop: 12 }}>
+          <i className="ph ph-warning-circle ic-primary" /> {error}
+        </p>
+      )}
+
       <div className="btn-row" style={{ marginTop: 12 }}>
         {overriding ? (
           <>
@@ -328,7 +361,12 @@ export default function FocusSetBoard({
           <h3 style={{ margin: "0 0 10px" }}>
             <i className="ph ph-plus-circle ic-primary" /> Bring back an existing gap
           </h3>
-          {available === null ? (
+          {availableError ? (
+            <div className="sub" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span><i className="ph ph-warning-circle ic-primary" /> Couldn&apos;t load</span>
+              <button className="btn sm" onClick={loadAvailable}>Try again</button>
+            </div>
+          ) : available === null ? (
             <p className="sub" style={{ margin: 0 }}>Loading…</p>
           ) : available.length === 0 ? (
             <p className="sub" style={{ margin: 0 }}>
@@ -374,7 +412,12 @@ export default function FocusSetBoard({
           <h3 style={{ margin: "0 0 10px" }}>
             <i className="ph ph-flask ic-primary" /> Track a new nutrient gap
           </h3>
-          {creatable === null ? (
+          {creatableError ? (
+            <div className="sub" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span><i className="ph ph-warning-circle ic-primary" /> Couldn&apos;t load</span>
+              <button className="btn sm" onClick={loadCreatable}>Try again</button>
+            </div>
+          ) : creatable === null ? (
             <p className="sub" style={{ margin: 0 }}>Loading…</p>
           ) : creatable.length === 0 ? (
             <p className="sub" style={{ margin: 0 }}>
