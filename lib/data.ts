@@ -473,6 +473,19 @@ function serializeItem(it: {
   };
 }
 
+/** Ratify screen needs every active focus item to have an ApprovedList to add candidates to,
+ * not just the top-ranked one — addFocusItem() already creates an empty draft list for
+ * anything added through the dietitian console, but items seeded before that existed (or added
+ * some other way) might not have one yet. Idempotent: a no-op once the list exists. */
+export async function ensureApprovedList(patientId: string, nutrientGapId: string): Promise<void> {
+  const existing = await prisma.approvedList.findUnique({
+    where: { patientId_nutrientGapId: { patientId, nutrientGapId } },
+  });
+  if (!existing) {
+    await prisma.approvedList.create({ data: { patientId, nutrientGapId, status: "draft" } });
+  }
+}
+
 export async function getApprovedList(patientId: string, nutrient: string): Promise<ApprovedList | null> {
   const list = await prisma.approvedList.findFirst({
     where: { patientId, nutrientGap: { nutrient } },
