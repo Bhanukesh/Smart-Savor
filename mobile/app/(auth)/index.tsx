@@ -23,7 +23,7 @@ WebBrowser.maybeCompleteAuthSession();
 export default function InviteCodeScreen() {
   const [code, setCode] = useState("");
   const { startSSOFlow } = useSSO();
-  const { getToken } = useAuth();
+  const { getToken, isLoaded: authLoaded } = useAuth();
   const { signIn } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -44,6 +44,21 @@ export default function InviteCodeScreen() {
 
   async function signInWithGoogle() {
     setError(null);
+    // Clerk's own docs (the <ClerkLoaded> component) exist specifically because its hooks
+    // aren't safe to call until the client has finished its async init — startSSOFlow on a
+    // cold launch, tapped before that finishes, fails before ever opening the Google screen.
+    // This is the very first screen in the app, so that race is real in a way it wasn't back
+    // when this button only existed on a later screen (reached after typing an invite code,
+    // which gave Clerk time to load in the background).
+    if (!authLoaded) {
+      setError("Still getting ready — try again in a second.");
+      return;
+    }
+    // Disabling the button has to happen before the first await, not after startSSOFlow
+    // resolves — otherwise it stays tappable for the entire OAuth round-trip (opening the
+    // browser, the user completing Google's screen, the redirect back), and a second tap
+    // fires a second, conflicting SSO attempt on top of the first.
+    setSigningIn(true);
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: "oauth_google",
@@ -51,14 +66,16 @@ export default function InviteCodeScreen() {
       });
       if (!createdSessionId || !setActive) return;
       await setActive({ session: createdSessionId });
-      setSigningIn(true);
       const clerkToken = await getToken();
       if (!clerkToken) throw new Error("Couldn't verify sign-in — try again.");
       const result = await signInReturningPatient(clerkToken);
       await signIn(result.patientId, result.patientFirstName);
       router.replace("/(tabs)");
     } catch (err) {
-      console.error("Returning-patient sign-in error:", err);
+      // Full error, not just .message — Clerk errors carry structured detail
+      // (err.errors[].longMessage/code) that .message alone won't surface, and this is the
+      // only way to actually diagnose a failure that only reproduces on a real device.
+      console.error("Returning-patient sign-in error:", JSON.stringify(err, null, 2));
       const message = err instanceof Error ? err.message : "";
       setError(
         message.includes("No account found")

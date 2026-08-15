@@ -3,7 +3,7 @@ import { Platform, Text, StyleSheet } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
-import { useSSO } from "@clerk/expo";
+import { useSSO, useAuth } from "@clerk/expo";
 import Screen from "../../components/Screen";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
@@ -19,6 +19,7 @@ WebBrowser.maybeCompleteAuthSession();
 export default function SignupScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const { startSSOFlow } = useSSO();
+  const { isLoaded: authLoaded } = useAuth();
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +33,10 @@ export default function SignupScreen() {
 
   async function signInWithGoogle() {
     setError(null);
+    if (!authLoaded) {
+      setError("Still getting ready — try again in a second.");
+      return;
+    }
     setSigningIn(true);
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
@@ -46,7 +51,7 @@ export default function SignupScreen() {
       // No session and no error thrown — the user backed out of the Google flow (e.g. closed
       // the browser tab) rather than something failing; nothing to show, just let them retry.
     } catch (err) {
-      console.error("Google sign-in error:", err);
+      console.error("Google sign-in error:", JSON.stringify(err, null, 2));
       setError("Couldn't sign in with Google — try again in a moment.");
     } finally {
       setSigningIn(false);
