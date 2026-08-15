@@ -66,13 +66,17 @@ function GapSection({ patientId, gap, list }: { patientId: string; gap: FocusIte
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [result, setResult] = useState<ChoiceResult | null>(null);
   const [picking, setPicking] = useState(false);
+  const [pickError, setPickError] = useState(false);
 
   async function pick(itemId: string) {
     setSelectedId(itemId);
     setPicking(true);
+    setPickError(false);
     try {
       const r = await chooseFood(patientId, itemId, gap.targetValue - gap.currentValue);
       setResult(r);
+    } catch {
+      setPickError(true);
     } finally {
       setPicking(false);
     }
@@ -102,6 +106,7 @@ function GapSection({ patientId, gap, list }: { patientId: string; gap: FocusIte
           </Pressable>
         );
       })}
+      {pickError && <Text style={styles.errorText}>Couldn&apos;t save that pick — tap it again to retry.</Text>}
       {result && (
         <View style={styles.resultBox}>
           <Text style={styles.resultBig}>{result.servingsText}</Text>
@@ -118,6 +123,7 @@ const styles = StyleSheet.create({
   sub: { fontSize: 14, color: colors.mutedForeground, marginBottom: spacing.lg },
   cardTitle: { fontSize: 16, fontWeight: "700", color: colors.foreground, marginBottom: 10 },
   emptyText: { fontSize: 13, color: colors.mutedForeground },
+  errorText: { fontSize: 12.5, color: colors.danger, marginTop: 4, marginBottom: 8 },
   food: {
     flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border,
     borderRadius: radius.input, padding: 12, marginBottom: 8, gap: 8,

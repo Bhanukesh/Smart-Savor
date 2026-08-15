@@ -9,24 +9,32 @@ type Status = {
 
 export default function InvitePanel({ patientId, patientFirstName }: { patientId: string; patientFirstName: string }) {
   const [status, setStatus] = useState<Status | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
+  function load() {
+    setLoadError(false);
     fetch(`/api/patients/${patientId}/invite`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => data && setStatus(data));
-  }, [patientId]);
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => setStatus(data))
+      .catch(() => setLoadError(true));
+  }
+
+  useEffect(load, [patientId]);
 
   async function generate() {
     setGenerating(true);
+    setError(null);
     try {
       const res = await fetch(`/api/patients/${patientId}/invite`, { method: "POST" });
-      if (res.ok) {
-        const invite = await res.json();
-        setStatus({ hasAccount: false, invite: { ...invite, redeemedAt: null } });
-        setCopied(false);
-      }
+      if (!res.ok) throw new Error();
+      const invite = await res.json();
+      setStatus({ hasAccount: false, invite: { ...invite, redeemedAt: null } });
+      setCopied(false);
+    } catch {
+      setError("Couldn't generate an invite — try again.");
     } finally {
       setGenerating(false);
     }
@@ -40,6 +48,18 @@ export default function InvitePanel({ patientId, patientFirstName }: { patientId
     } catch {
       // clipboard permissions can silently fail — the code is still visible to copy by hand
     }
+  }
+
+  if (loadError) {
+    return (
+      <div className="card">
+        <h2>
+          <i className="ph ph-warning-circle ic-primary" /> Invite
+        </h2>
+        <p className="sub" style={{ margin: "0 0 12px" }}>Couldn&apos;t load invite status.</p>
+        <button className="btn" onClick={load}>Try again</button>
+      </div>
+    );
   }
 
   if (status === null) return null;
@@ -79,6 +99,11 @@ export default function InvitePanel({ patientId, patientFirstName }: { patientId
           <button className="btn primary" disabled={generating} onClick={generate}>
             {generating ? "Generating…" : "Send invite"} <i className="ph-bold ph-arrow-right" />
           </button>
+          {error && (
+            <p className="note" style={{ marginTop: 10 }}>
+              <i className="ph ph-warning-circle ic-primary" /> {error}
+            </p>
+          )}
         </>
       ) : (
         <>
@@ -101,6 +126,11 @@ export default function InvitePanel({ patientId, patientFirstName }: { patientId
           <button className="btn" disabled={generating} onClick={generate}>
             {generating ? "Generating…" : expired ? "Generate new code" : "Regenerate code"}
           </button>
+          {error && (
+            <p className="note" style={{ marginTop: 10 }}>
+              <i className="ph ph-warning-circle ic-primary" /> {error}
+            </p>
+          )}
         </>
       )}
     </div>

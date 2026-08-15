@@ -13,12 +13,17 @@ export default function ConfirmFocusSet({
 }) {
   const [published, setPublished] = useState(!!initialConfirmedAt);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function confirm() {
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch(`/api/patients/${patientId}/focus-set/confirm`, { method: "POST" });
-      if (res.ok) setPublished(true);
+      if (!res.ok) throw new Error();
+      setPublished(true);
+    } catch {
+      setError("Couldn't confirm the focus set — try again.");
     } finally {
       setSaving(false);
     }
@@ -44,6 +49,11 @@ export default function ConfirmFocusSet({
           <Link href={`/patients/${patientId}/ratify`} style={{ textDecoration: "underline" }}>
             Continue to Ratify (D2/D3) →
           </Link>
+        </p>
+      )}
+      {error && (
+        <p className="note" style={{ marginTop: 10 }}>
+          <i className="ph ph-warning-circle ic-primary" /> {error}
         </p>
       )}
     </>

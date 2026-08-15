@@ -29,6 +29,8 @@ export default function InviteColleagueForm() {
         const data = await res.json().catch(() => ({}));
         setError(data.error?.formErrors?.[0] ?? "Couldn't send the invite.");
       }
+    } catch {
+      setError("Couldn't send the invite — try again.");
     } finally {
       setSubmitting(false);
     }
