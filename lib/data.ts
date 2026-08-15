@@ -12,7 +12,7 @@ import { parseLabReport } from "./labReportParser";
 import { saveUpload } from "./storage";
 import { getSessionUser } from "./auth/session";
 import type {
-  Patient, FocusItem, ApprovedList, ChoiceResult, DashboardGauge, NutrientGap, NutrientKey, Severity,
+  Patient, FocusItem, ApprovedList, ChoiceResult, ShoppingListItem, DashboardGauge, NutrientGap, NutrientKey, Severity,
   ConsumptionEntry, ReceiptSummary, ReceiptDetail, ReceiptLineItemEntry, WeightCheckInEntry,
   NutrientHistory, MessageEntry, MessageThreadSummary, LabReportSummary, LabReportDetail, LabReportFindingEntry,
 } from "./types";
@@ -666,6 +666,27 @@ export async function createChoice(
     });
   }
   return result;
+}
+
+/** This week's shopping list — whichever food is currently the active (non-superseded) pick
+ * for each of the active cycle's focus areas. createChoice() supersedes the previous pick the
+ * moment a patient picks something else for the same gap, so there's at most one active choice
+ * per gap at any time — this is exactly "what to buy," no separate tracking needed. */
+export async function getShoppingList(patientId: string): Promise<ShoppingListItem[]> {
+  const cycle = await prisma.cycle.findFirst({ where: { patientId, status: "active" }, orderBy: { startDate: "desc" } });
+  if (!cycle) return [];
+  const choices = await prisma.patientChoice.findMany({
+    where: { patientId, cycleId: cycle.id, supersededAt: null },
+    include: { nutrientGap: true },
+    orderBy: { chosenAt: "desc" },
+  });
+  return choices.map((c) => ({
+    nutrientGapId: c.nutrientGapId,
+    nutrientLabel: c.nutrientGap.label,
+    foodName: c.foodName,
+    servingsText: c.servingsText,
+    chosenAt: c.chosenAt.toISOString(),
+  }));
 }
 
 const GAUGE_ICON: Partial<Record<NutrientKey, string>> = {

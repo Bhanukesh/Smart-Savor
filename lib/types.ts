@@ -85,6 +85,17 @@ export interface ApprovedList {
   items: ApprovedListItem[];
 }
 
+/** patient_choices — the currently active (non-superseded) pick per focus gap, for this
+ * cycle. What the "shopping list" is built from: whichever food is currently selected on the
+ * Swap screen for each focus area. */
+export interface ShoppingListItem {
+  nutrientGapId: string;
+  nutrientLabel: string;
+  foodName: string;
+  servingsText: string;
+  chosenAt: string;
+}
+
 /** the USP result — what save_patient_choice returns after recompute */
 export interface ChoiceResult {
   foodName: string;

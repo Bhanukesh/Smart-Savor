@@ -3,7 +3,7 @@ import { Platform, View, Text, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
-import { useSSO, useAuth } from "@clerk/expo";
+import { useSSO, useAuth, useClerk } from "@clerk/expo";
 import Screen from "../../components/Screen";
 import Card from "../../components/Card";
 import TextField from "../../components/TextField";
@@ -16,6 +16,21 @@ import { signInReturningPatient } from "../../lib/api";
 
 WebBrowser.maybeCompleteAuthSession();
 
+// Clerk errors carry structured detail (a ClerkAPIResponseError's `.errors` array, each with a
+// `code` and `longMessage`) that `.message` alone doesn't surface — this is what actually says
+// *why* a sign-in failed (expired ticket, disallowed redirect, etc.) instead of just "it did."
+function describeError(err: unknown): string {
+  if (err && typeof err === "object" && "errors" in err) {
+    const list = (err as { errors?: unknown }).errors;
+    if (Array.isArray(list) && list.length > 0) {
+      const first = list[0] as { code?: string; longMessage?: string; message?: string };
+      return [first.code, first.longMessage ?? first.message].filter(Boolean).join(": ") || "unknown error";
+    }
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 // Both first-time and returning patients land here. Returning patients used to have to tap
 // "Sign in" and land on a second screen just to see the Google button — pure friction, since
 // that screen had nothing else on it. The Google sign-in lives right here instead: new patients
@@ -23,7 +38,8 @@ WebBrowser.maybeCompleteAuthSession();
 export default function InviteCodeScreen() {
   const [code, setCode] = useState("");
   const { startSSOFlow } = useSSO();
-  const { getToken } = useAuth();
+  const { getToken, isLoaded: authLoaded, isSignedIn } = useAuth();
+  const { signOut: clerkSignOut } = useClerk();
   const { signIn } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -44,27 +60,55 @@ export default function InviteCodeScreen() {
 
   async function signInWithGoogle() {
     setError(null);
+    // Clerk's own docs (the <ClerkLoaded> component) exist specifically because its hooks
+    // aren't safe to call until the client has finished its async init — startSSOFlow on a
+    // cold launch, tapped before that finishes, fails before ever opening the Google screen.
+    // This is the very first screen in the app, so that race is real in a way it wasn't back
+    // when this button only existed on a later screen (reached after typing an invite code,
+    // which gave Clerk time to load in the background).
+    if (!authLoaded) {
+      setError("Still getting ready — try again in a second.");
+      return;
+    }
+    // Disabling the button has to happen before the first await, not after startSSOFlow
+    // resolves — otherwise it stays tappable for the entire OAuth round-trip (opening the
+    // browser, the user completing Google's screen, the redirect back), and a second tap
+    // fires a second, conflicting SSO attempt on top of the first.
+    setSigningIn(true);
     try {
+      // Defensive, on top of SessionContext's signOut() also calling Clerk's own signOut():
+      // this app's Clerk instance is single-session-mode, so starting a *new* SSO flow while
+      // Clerk still considers any session active — however that happened — is exactly the
+      // shape of bug a returning patient hits. Force a clean slate right before every attempt
+      // here, not just on the way out at logout.
+      if (isSignedIn) {
+        await clerkSignOut().catch((err) => console.error("Pre-signin Clerk sign-out failed:", err));
+      }
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: "oauth_google",
         redirectUrl: AuthSession.makeRedirectUri({ scheme: "smartsavor", path: "continue" }),
       });
       if (!createdSessionId || !setActive) return;
       await setActive({ session: createdSessionId });
-      setSigningIn(true);
       const clerkToken = await getToken();
       if (!clerkToken) throw new Error("Couldn't verify sign-in — try again.");
       const result = await signInReturningPatient(clerkToken);
       await signIn(result.patientId, result.patientFirstName);
       router.replace("/(tabs)");
     } catch (err) {
-      console.error("Returning-patient sign-in error:", err);
+      // Full error, not just .message — Clerk errors carry structured detail
+      // (err.errors[].longMessage/code) that .message alone won't surface, and this is the
+      // only way to actually diagnose a failure that only reproduces on a real device.
+      console.error("Returning-patient sign-in error:", JSON.stringify(err, null, 2));
       const message = err instanceof Error ? err.message : "";
-      setError(
-        message.includes("No account found")
-          ? "That Google account isn't linked to a Smart Savor account yet — use your invite code below instead."
-          : "Couldn't sign you in — try again in a moment.",
-      );
+      if (message.includes("No account found")) {
+        setError("That Google account isn't linked to a Smart Savor account yet — use your invite code below instead.");
+      } else {
+        // Shown on-device on purpose (not just console.error) — there's no way to pull device
+        // logs from a preview APK, so this is the only path to a real diagnosis if this still
+        // fails. Safe to revert to a plain message once this is confirmed working.
+        setError(`Couldn't sign you in — ${describeError(err)}`);
+      }
     } finally {
       setSigningIn(false);
     }

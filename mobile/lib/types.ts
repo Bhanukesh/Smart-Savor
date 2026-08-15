@@ -51,6 +51,14 @@ export interface FocusItem {
   excludeReason?: string;
 }
 
+export interface ShoppingListItem {
+  nutrientGapId: string;
+  nutrientLabel: string;
+  foodName: string;
+  servingsText: string;
+  chosenAt: string;
+}
+
 export interface ApprovedListItem {
   id: string;
   foodName: string;
