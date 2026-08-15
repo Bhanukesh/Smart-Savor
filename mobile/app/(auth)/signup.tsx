@@ -3,7 +3,7 @@ import { Platform, Text, StyleSheet } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
-import { useSSO, useAuth } from "@clerk/expo";
+import { useSSO, useAuth, useClerk } from "@clerk/expo";
 import Screen from "../../components/Screen";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
@@ -12,6 +12,20 @@ import { colors, spacing } from "../../lib/theme";
 
 WebBrowser.maybeCompleteAuthSession();
 
+// See (auth)/index.tsx's copy of this — Clerk errors carry structured detail (`.errors[]`
+// with `code`/`longMessage`) that `.message` alone doesn't surface.
+function describeError(err: unknown): string {
+  if (err && typeof err === "object" && "errors" in err) {
+    const list = (err as { errors?: unknown }).errors;
+    if (Array.isArray(list) && list.length > 0) {
+      const first = list[0] as { code?: string; longMessage?: string; message?: string };
+      return [first.code, first.longMessage ?? first.message].filter(Boolean).join(": ") || "unknown error";
+    }
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 // Same identity step as web's app/invite/signup: real Google sign-in through the patient
 // Clerk app (a separate, unrestricted app from the dietitian one — see the web app's
 // CLAUDE.md), not the old mocked {phone, firstName, lastName} path. That path accepted
@@ -19,7 +33,8 @@ WebBrowser.maybeCompleteAuthSession();
 export default function SignupScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const { startSSOFlow } = useSSO();
-  const { isLoaded: authLoaded } = useAuth();
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const { signOut: clerkSignOut } = useClerk();
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +54,11 @@ export default function SignupScreen() {
     }
     setSigningIn(true);
     try {
+      // Same defensive clean-slate as the returning-sign-in screen — a stale Clerk session
+      // (this instance is single-session-mode) blocks a fresh startSSOFlow from completing.
+      if (isSignedIn) {
+        await clerkSignOut().catch((err) => console.error("Pre-signin Clerk sign-out failed:", err));
+      }
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: "oauth_google",
         redirectUrl: AuthSession.makeRedirectUri({ scheme: "smartsavor", path: "continue" }),
@@ -52,7 +72,8 @@ export default function SignupScreen() {
       // the browser tab) rather than something failing; nothing to show, just let them retry.
     } catch (err) {
       console.error("Google sign-in error:", JSON.stringify(err, null, 2));
-      setError("Couldn't sign in with Google — try again in a moment.");
+      // Shown on-device on purpose — no way to pull logs from a preview APK otherwise.
+      setError(`Couldn't sign in with Google — ${describeError(err)}`);
     } finally {
       setSigningIn(false);
     }

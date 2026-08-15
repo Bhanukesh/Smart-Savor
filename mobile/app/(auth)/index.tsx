@@ -3,7 +3,7 @@ import { Platform, View, Text, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
-import { useSSO, useAuth } from "@clerk/expo";
+import { useSSO, useAuth, useClerk } from "@clerk/expo";
 import Screen from "../../components/Screen";
 import Card from "../../components/Card";
 import TextField from "../../components/TextField";
@@ -16,6 +16,21 @@ import { signInReturningPatient } from "../../lib/api";
 
 WebBrowser.maybeCompleteAuthSession();
 
+// Clerk errors carry structured detail (a ClerkAPIResponseError's `.errors` array, each with a
+// `code` and `longMessage`) that `.message` alone doesn't surface — this is what actually says
+// *why* a sign-in failed (expired ticket, disallowed redirect, etc.) instead of just "it did."
+function describeError(err: unknown): string {
+  if (err && typeof err === "object" && "errors" in err) {
+    const list = (err as { errors?: unknown }).errors;
+    if (Array.isArray(list) && list.length > 0) {
+      const first = list[0] as { code?: string; longMessage?: string; message?: string };
+      return [first.code, first.longMessage ?? first.message].filter(Boolean).join(": ") || "unknown error";
+    }
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 // Both first-time and returning patients land here. Returning patients used to have to tap
 // "Sign in" and land on a second screen just to see the Google button — pure friction, since
 // that screen had nothing else on it. The Google sign-in lives right here instead: new patients
@@ -23,7 +38,8 @@ WebBrowser.maybeCompleteAuthSession();
 export default function InviteCodeScreen() {
   const [code, setCode] = useState("");
   const { startSSOFlow } = useSSO();
-  const { getToken, isLoaded: authLoaded } = useAuth();
+  const { getToken, isLoaded: authLoaded, isSignedIn } = useAuth();
+  const { signOut: clerkSignOut } = useClerk();
   const { signIn } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -60,6 +76,14 @@ export default function InviteCodeScreen() {
     // fires a second, conflicting SSO attempt on top of the first.
     setSigningIn(true);
     try {
+      // Defensive, on top of SessionContext's signOut() also calling Clerk's own signOut():
+      // this app's Clerk instance is single-session-mode, so starting a *new* SSO flow while
+      // Clerk still considers any session active — however that happened — is exactly the
+      // shape of bug a returning patient hits. Force a clean slate right before every attempt
+      // here, not just on the way out at logout.
+      if (isSignedIn) {
+        await clerkSignOut().catch((err) => console.error("Pre-signin Clerk sign-out failed:", err));
+      }
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: "oauth_google",
         redirectUrl: AuthSession.makeRedirectUri({ scheme: "smartsavor", path: "continue" }),
@@ -77,11 +101,14 @@ export default function InviteCodeScreen() {
       // only way to actually diagnose a failure that only reproduces on a real device.
       console.error("Returning-patient sign-in error:", JSON.stringify(err, null, 2));
       const message = err instanceof Error ? err.message : "";
-      setError(
-        message.includes("No account found")
-          ? "That Google account isn't linked to a Smart Savor account yet — use your invite code below instead."
-          : "Couldn't sign you in — try again in a moment.",
-      );
+      if (message.includes("No account found")) {
+        setError("That Google account isn't linked to a Smart Savor account yet — use your invite code below instead.");
+      } else {
+        // Shown on-device on purpose (not just console.error) — there's no way to pull device
+        // logs from a preview APK, so this is the only path to a real diagnosis if this still
+        // fails. Safe to revert to a plain message once this is confirmed working.
+        setError(`Couldn't sign you in — ${describeError(err)}`);
+      }
     } finally {
       setSigningIn(false);
     }
