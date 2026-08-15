@@ -1,8 +1,9 @@
+import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import PortalNav from "@/components/PortalNav";
 import PatientLocalNav from "@/components/PatientLocalNav";
 import RatifyBoard from "@/components/RatifyBoard";
-import { getPatient, getApprovedList, getFocusSet } from "@/lib/data";
+import { getPatient, getApprovedList, getFocusSet, ensureApprovedList } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -12,12 +13,20 @@ export default async function PatientRatifyPage({ params }: { params: Promise<{ 
   const patient = await getPatient(id);
   if (!patient) notFound();
 
-  // Ratify the patient's top active focus gap — not hardcoded to "iron", so this works for
-  // whichever nutrient actually leads this patient's focus set (may have no approved list yet).
+  // Every active (non-excluded) focus item gets its own swap menu to ratify, not just the
+  // top-ranked one — a patient with several gaps needs candidates for each, not only their
+  // single highest-priority deficiency.
   const focus = await getFocusSet(id);
-  const topGap = focus.find((f) => !f.excluded)?.gap;
-  const list = topGap ? await getApprovedList(id, topGap.nutrient) : null;
-  if (!topGap || !list) notFound();
+  const activeGaps = focus.filter((f) => !f.excluded);
+  if (activeGaps.length === 0) notFound();
+
+  const sections = await Promise.all(
+    activeGaps.map(async (f) => {
+      await ensureApprovedList(id, f.gap.id);
+      const list = await getApprovedList(id, f.gap.nutrient);
+      return list;
+    }),
+  );
 
   return (
     <>
@@ -36,11 +45,12 @@ export default async function PatientRatifyPage({ params }: { params: Promise<{ 
 
         <p className="eyebrow">{patient.name} · Stage D2/D3</p>
         <h1>
-          Ratify the <em>swap menu</em>
+          Ratify the <em>swap menus</em>
         </h1>
         <p className="sub">
-          Candidates generated from the confirmed focus set ({topGap.label}-lead), screened against
-          comorbidities and current labs. Approve, edit, or remove — only ratified items reach {patient.name.split(" ")[0]}.
+          Candidates for every active gap in the confirmed focus set, screened against
+          comorbidities and current labs. Approve, edit, or remove — only ratified items reach{" "}
+          {patient.name.split(" ")[0]}.
         </p>
 
         <p className="note">
@@ -51,13 +61,23 @@ export default async function PatientRatifyPage({ params }: { params: Promise<{ 
           BP {patient.bpSystolic}/{patient.bpDiastolic}. Applied to every candidate below.
         </p>
 
-        <RatifyBoard
-          patientId={patient.id}
-          patientFirstName={patient.name.split(" ")[0]}
-          nutrient={list.gap.nutrient}
-          nutrientLabel={list.gap.label}
-          initialItems={list.items}
-        />
+        {sections.map((list) =>
+          list ? (
+            <RatifyBoard
+              key={list.gap.nutrient}
+              patientId={patient.id}
+              nutrient={list.gap.nutrient}
+              nutrientLabel={list.gap.label}
+              initialItems={list.items}
+            />
+          ) : null,
+        )}
+
+        <div className="btn-row" style={{ marginTop: 4, marginBottom: 20 }}>
+          <Link className="btn primary" href="/me/swap">
+            Publish ratified menus to {patient.name.split(" ")[0]} <i className="ph-bold ph-arrow-right" />
+          </Link>
+        </div>
 
         <p className="note safe">
           <strong>

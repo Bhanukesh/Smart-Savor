@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import type { ApprovedList, ApprovedListItem } from "@/lib/types";
 
 type SearchResult = {
@@ -22,13 +21,11 @@ const RANK: Record<string, { cls: string; icon?: string; txt?: string }> = {
 
 export default function RatifyBoard({
   patientId,
-  patientFirstName,
   nutrient,
   nutrientLabel,
   initialItems,
 }: {
   patientId: string;
-  patientFirstName: string;
   nutrient: string;
   nutrientLabel: string;
   initialItems: ApprovedListItem[];
@@ -294,12 +291,6 @@ export default function RatifyBoard({
           <i className="ph ph-warning-circle ic-primary" /> {error}
         </p>
       )}
-
-      <div className="btn-row" style={{ marginTop: 16 }}>
-        <Link className="btn primary" href="/me/swap">
-          Publish ratified menu to {patientFirstName} <i className="ph-bold ph-arrow-right" />
-        </Link>
-      </div>
     </div>
   );
 }
