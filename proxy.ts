@@ -30,6 +30,7 @@ const PATIENT_SAFE_PATTERNS: RegExp[] = [
   /^\/api\/patients\/[^/]+\/messages$/, // two-way thread; both roles post here
   /^\/api\/patients\/[^/]+\/preferences$/,
   /^\/api\/patients\/[^/]+\/receipts(\/.*)?$/,
+  /^\/api\/patients\/[^/]+\/shopping-list$/,
   /^\/api\/patients\/[^/]+\/weight-check-ins$/,
 ];
 

@@ -16,6 +16,7 @@ const RX_LINKS = [
 
 const ME_LINKS = [
   { href: "/me/swap", label: "Swap", icon: "ph-star" },
+  { href: "/me/shopping-list", label: "Shopping List", icon: "ph-shopping-cart-simple" },
   { href: "/me/log", label: "Log", icon: "ph-fork-knife" },
   { href: "/me/receipts", label: "Receipts", icon: "ph-receipt" },
   { href: "/me/labs", label: "Labs", icon: "ph-flask" },

@@ -9,7 +9,7 @@
 import type {
   Patient, DashboardGauge, ConsumptionEntry, ReceiptSummary, ReceiptDetail, ReceiptLineItemEntry,
   LabReportSummary, LabReportDetail, LabReportFindingEntry, WeightCheckInEntry, NutrientHistory,
-  MessageEntry, ApprovedList, ChoiceResult, FocusItem,
+  MessageEntry, ApprovedList, ChoiceResult, FocusItem, ShoppingListItem,
 } from "./types";
 
 // Same machine's browser (expo start --web) reaches the Next.js dev server directly at
@@ -192,4 +192,8 @@ export async function chooseFood(
   return request(`/api/patients/${patientId}/choices`, {
     method: "POST", body: JSON.stringify({ approvedListItemId, gapRemaining }),
   });
+}
+
+export async function getShoppingList(patientId: string): Promise<{ items: ShoppingListItem[] }> {
+  return request(`/api/patients/${patientId}/shopping-list`);
 }

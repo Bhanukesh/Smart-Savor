@@ -13,6 +13,7 @@ const ITEMS = [
   { href: "/(tabs)/more/receipts", label: "Receipts", icon: "receipt" as const },
   { href: "/(tabs)/more/labs", label: "Lab Reports", icon: "flask" as const },
   { href: "/(tabs)/more/swap", label: "Swap", icon: "star" as const },
+  { href: "/(tabs)/more/shopping-list", label: "Shopping List", icon: "cart" as const },
   { href: "/(tabs)/more/history", label: "History", icon: "time" as const },
   { href: "/(tabs)/more/profile", label: "Profile", icon: "person-circle" as const },
 ];

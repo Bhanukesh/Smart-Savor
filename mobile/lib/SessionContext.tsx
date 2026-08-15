@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useClerk } from "@clerk/expo";
 import { loadSession, saveSession, clearSession, type StoredSession } from "./session";
 
 type Ctx = {
@@ -13,6 +14,7 @@ const SessionCtx = createContext<Ctx | null>(null);
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<StoredSession | null>(null);
   const [loading, setLoading] = useState(true);
+  const { signOut: clerkSignOut } = useClerk();
 
   useEffect(() => {
     loadSession()
@@ -31,8 +33,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     await clearSession();
+    // This app's own session (SecureStore patientId) is separate from Clerk's — Clerk's SDK
+    // persists its own session across app restarts via tokenCache, and this Clerk instance is
+    // single-session-mode. Without also signing out here, a "logged out" patient tapping
+    // Continue with Google again hits Clerk still believing a session is active, and the new
+    // sign-in silently fails instead of starting a fresh OAuth round-trip.
+    await clerkSignOut().catch((err) => console.error("Clerk sign-out failed:", err));
     setSession(null);
-  }, []);
+  }, [clerkSignOut]);
 
   return <SessionCtx.Provider value={{ session, loading, signIn, signOut }}>{children}</SessionCtx.Provider>;
 }
