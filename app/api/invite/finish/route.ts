@@ -18,6 +18,7 @@ const ERROR_MESSAGE: Record<string, string> = {
   not_found: "That code doesn't match an invite.",
   already_redeemed: "This code's already been used.",
   expired: "This code has expired.",
+  identity_already_linked: "That Google account is already linked to a different patient — ask your dietitian to check which account you should use.",
 };
 
 // POST /api/invite/finish — the last step after app/invite/claim confirms details. Trusts
@@ -38,20 +39,28 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
-  const client = getPatientClerkClient();
-  if (!client) return NextResponse.json({ error: "Sign-up isn't available right now." }, { status: 500 });
-  const clerkUser = await client.users.getUser(userId);
-  const email = clerkUser.primaryEmailAddress?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress;
-  if (!email) return NextResponse.json({ error: "Your Google account has no email to verify." }, { status: 400 });
+  try {
+    const client = getPatientClerkClient();
+    if (!client) return NextResponse.json({ error: "Sign-up isn't available right now." }, { status: 500 });
+    const clerkUser = await client.users.getUser(userId);
+    const email = clerkUser.primaryEmailAddress?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress;
+    if (!email) return NextResponse.json({ error: "Your Google account has no email to verify." }, { status: 400 });
 
-  const result = await redeemInvite(
-    parsed.data.code,
-    { email, googleUserId: userId, firstName: parsed.data.firstName, lastName: parsed.data.lastName },
-    parsed.data.age,
-  );
+    const result = await redeemInvite(
+      parsed.data.code,
+      { email, googleUserId: userId, firstName: parsed.data.firstName, lastName: parsed.data.lastName },
+      parsed.data.age,
+    );
 
-  if (!result.ok) {
-    return NextResponse.json({ error: ERROR_MESSAGE[result.error] ?? "Couldn't redeem that code." }, { status: 400 });
+    if (!result.ok) {
+      return NextResponse.json({ error: ERROR_MESSAGE[result.error] ?? "Couldn't redeem that code." }, { status: 400 });
+    }
+    return NextResponse.json({ patientId: result.patientId, patientFirstName: result.patientFirstName });
+  } catch (err) {
+    // Logged server-side, not invented — same "Error visibility" convention as the upload
+    // parsers (see CLAUDE.md). A bare 500 with no detail isn't diagnosable from a device with
+    // no way to pull logs.
+    console.error("POST /api/invite/finish failed:", err);
+    return NextResponse.json({ error: "Something went wrong activating your account — try again." }, { status: 500 });
   }
-  return NextResponse.json({ patientId: result.patientId, patientFirstName: result.patientFirstName });
 }

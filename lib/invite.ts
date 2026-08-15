@@ -3,13 +3,12 @@
  * gate: identity verification runs only after a valid, unexpired, unredeemed code is
  * presented, and only ever reaches redeemInvite() once it's actually happened.
  *
- * Web verifies identity via a real Google sign-in through a separate, unrestricted patient
- * Clerk app (see lib/patientClerk.ts, app/invite/claim) — app/invite/claim reads that Clerk
- * session directly and calls this with a real email/googleUserId, never a mock. mobile/ still
- * calls this directly with an unverified {phone, firstName, lastName} — a documented, narrower
- * legacy path (see mobile/lib/session.ts's comments) until it gets the same treatment web did.
+ * Both web (app/invite/claim) and mobile/ (app/(auth)/details.tsx) verify identity via a real
+ * Google sign-in through a separate, unrestricted patient Clerk app (see lib/patientClerk.ts)
+ * before ever calling this with a real email/googleUserId — never a mock on either platform.
  */
 import crypto from "crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { createSession } from "./auth/session";
 
@@ -32,7 +31,7 @@ export async function checkInviteCode(code: string): Promise<InviteCheck> {
 
 export type RedeemResult =
   | { ok: true; patientId: string; patientFirstName: string }
-  | { ok: false; error: "not_found" | "already_redeemed" | "expired" };
+  | { ok: false; error: "not_found" | "already_redeemed" | "expired" | "identity_already_linked" };
 
 export async function redeemInvite(
   code: string,
@@ -44,21 +43,33 @@ export async function redeemInvite(
   if (invite.redeemedAt) return { ok: false, error: "already_redeemed" };
   if (invite.expiresAt < new Date()) return { ok: false, error: "expired" };
 
-  const user = await prisma.user.upsert({
-    where: { patientId: invite.patientId },
-    create: {
-      role: "patient",
-      patientId: invite.patientId,
-      email: identity.email,
-      phone: identity.phone,
-      googleUserId: identity.googleUserId,
-    },
-    update: {
-      ...(identity.email ? { email: identity.email } : {}),
-      ...(identity.phone ? { phone: identity.phone } : {}),
-      ...(identity.googleUserId ? { googleUserId: identity.googleUserId } : {}),
-    },
-  });
+  // email/googleUserId are @unique on User — the same Google account (or address) redeeming a
+  // second invite for a *different* patientId would otherwise throw an unhandled Prisma P2002
+  // here (a 500, not a real error message). Not hypothetical: this is exactly what repeated
+  // manual testing with one real Google account across several test patients hits.
+  let user;
+  try {
+    user = await prisma.user.upsert({
+      where: { patientId: invite.patientId },
+      create: {
+        role: "patient",
+        patientId: invite.patientId,
+        email: identity.email,
+        phone: identity.phone,
+        googleUserId: identity.googleUserId,
+      },
+      update: {
+        ...(identity.email ? { email: identity.email } : {}),
+        ...(identity.phone ? { phone: identity.phone } : {}),
+        ...(identity.googleUserId ? { googleUserId: identity.googleUserId } : {}),
+      },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { ok: false, error: "identity_already_linked" };
+    }
+    throw err;
+  }
 
   await prisma.patientInvite.update({ where: { id: invite.id }, data: { redeemedAt: new Date() } });
   // The dietitian's age at "Add patient" time is a rough placeholder; whatever the patient
